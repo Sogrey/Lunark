@@ -1,18 +1,37 @@
 <script setup lang="ts">
-import { Codemirror } from "vue-codemirror";
-import type { EditorView } from "@codemirror/view";
+import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { EditorState } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
 import { markdown } from "@codemirror/lang-markdown";
-import { EditorView as CMView, keymap, lineNumbers, highlightActiveLine } from "@codemirror/view";
+import {
+  keymap,
+  lineNumbers,
+  highlightActiveLine,
+} from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
+import {
+  search,
+  findNext,
+  findPrevious,
+  selectNextOccurrence,
+  highlightSelectionMatches,
+} from "@codemirror/search";
 import { bracketMatching } from "@codemirror/language";
 import { nightEditorTheme, nightSyntax } from "@/lib/editor/nightTheme";
+import { imageInputExtension } from "@/lib/editor/imageInput";
+import {
+  getTabEditorState,
+  setTabEditorState,
+} from "@/lib/editor/tabEditorStates";
 import { useEditorStore } from "@/stores/editor";
 import { useTabsStore } from "@/stores/tabs";
-import { onBeforeUnmount } from "vue";
 
 const editor = useEditorStore();
 const tabs = useTabsStore();
+const host = ref<HTMLElement | null>(null);
+
+let view: EditorView | null = null;
+let applyingExternal = false;
 
 const extensions = [
   markdown(),
@@ -21,39 +40,99 @@ const extensions = [
   history(),
   bracketMatching(),
   highlightSelectionMatches(),
+  search({ top: true }),
+  imageInputExtension(),
   nightEditorTheme,
   nightSyntax,
-  CMView.lineWrapping,
-  keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap]),
+  EditorView.lineWrapping,
+  keymap.of([
+    ...defaultKeymap,
+    ...historyKeymap,
+    { key: "Mod-g", run: findNext },
+    { key: "Shift-Mod-g", run: findPrevious },
+    { key: "F3", run: findNext },
+    { key: "Shift-F3", run: findPrevious },
+    { key: "Mod-d", run: selectNextOccurrence },
+  ]),
+  EditorView.updateListener.of((update) => {
+    if (!update.docChanged || applyingExternal) return;
+    editor.setContent(update.state.doc.toString());
+  }),
 ];
 
-function onChange(value: string) {
-  editor.setContent(value);
+function createState(doc: string): EditorState {
+  return EditorState.create({ doc, extensions });
 }
 
-function onReady(payload: { view: EditorView }) {
-  editor.setCmView(payload.view);
+function mountView(tabId: string, content: string) {
+  if (!host.value) return;
+  const cached = getTabEditorState(tabId);
+  const state =
+    cached && cached.doc.toString() === content
+      ? cached
+      : createState(content);
+  view = new EditorView({ state, parent: host.value });
+  editor.setCmView(view);
+  setTabEditorState(tabId, view.state);
 }
+
+function switchTab(newId: string, oldId: string | undefined) {
+  if (!view) return;
+  if (oldId) setTabEditorState(oldId, view.state);
+
+  const tab = tabs.tabs.find((t) => t.id === newId);
+  const content = tab?.content ?? "";
+  const cached = getTabEditorState(newId);
+  const next =
+    cached && cached.doc.toString() === content
+      ? cached
+      : createState(content);
+
+  applyingExternal = true;
+  view.setState(next);
+  applyingExternal = false;
+  setTabEditorState(newId, view.state);
+  editor.setCmView(view);
+}
+
+onMounted(() => {
+  mountView(tabs.activeId, editor.content);
+});
+
+watch(
+  () => tabs.activeId,
+  (newId, oldId) => {
+    switchTab(newId, oldId);
+  },
+);
+
+/** 同 Tab 外部改内容（少见）时对齐文档 */
+watch(
+  () => editor.content,
+  (value) => {
+    if (!view || applyingExternal) return;
+    if (view.state.doc.toString() === value) return;
+    applyingExternal = true;
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: value },
+    });
+    applyingExternal = false;
+    setTabEditorState(tabs.activeId, view.state);
+  },
+);
 
 onBeforeUnmount(() => {
+  if (view) {
+    setTabEditorState(tabs.activeId, view.state);
+    view.destroy();
+    view = null;
+  }
   editor.setCmView(null);
 });
 </script>
 
 <template>
-  <div class="source-editor">
-    <Codemirror
-      :key="tabs.activeId"
-      :model-value="editor.content"
-      :extensions="extensions"
-      :autofocus="true"
-      :indent-with-tab="true"
-      :tab-size="2"
-      style="height: 100%"
-      @ready="onReady"
-      @change="onChange"
-    />
-  </div>
+  <div ref="host" class="source-editor" />
 </template>
 
 <style scoped>
@@ -69,5 +148,9 @@ onBeforeUnmount(() => {
 
 .source-editor :deep(.cm-editor.cm-focused) {
   outline: none;
+}
+
+.source-editor :deep(.cm-panels) {
+  display: none !important;
 }
 </style>

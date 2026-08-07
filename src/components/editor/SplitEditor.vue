@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from "vue";
-import { ElMessage } from "element-plus";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import SourceEditor from "./SourceEditor.vue";
 import PreviewPane from "./PreviewPane.vue";
 import { useEditorStore } from "@/stores/editor";
-import { isImageFile, saveDroppedImages } from "@/lib/fs/imageDrop";
+import {
+  bindTauriFileDrop,
+  onShellDragOver,
+  onShellDrop,
+} from "@/lib/editor/imageInput";
 import { useScrollSync } from "@/composables/useScrollSync";
 
 const editor = useEditorStore();
@@ -12,6 +15,8 @@ useScrollSync();
 const root = ref<HTMLElement | null>(null);
 const dragging = ref(false);
 const dropActive = ref(false);
+
+let unbindDrop: (() => void) | null = null;
 
 const sourceStyle = computed(() => {
   if (editor.viewMode === "source") {
@@ -44,46 +49,37 @@ function onPointerUp(event: PointerEvent) {
 }
 
 function onDragOver(event: DragEvent) {
-  if (!event.dataTransfer?.types.includes("Files")) return;
-  event.preventDefault();
-  dropActive.value = true;
+  if (onShellDragOver(event)) dropActive.value = true;
 }
 
-function onDragLeave() {
+function onDragLeave(event: DragEvent) {
+  const next = event.relatedTarget as Node | null;
+  if (next && root.value?.contains(next)) return;
   dropActive.value = false;
 }
 
-async function onDrop(event: DragEvent) {
-  event.preventDefault();
+function onDrop(event: DragEvent) {
   dropActive.value = false;
-  const files = event.dataTransfer?.files;
-  if (!files?.length) return;
-
-  const images = Array.from(files).filter(isImageFile);
-  if (images.length === 0) return;
-
-  if (!editor.filePath) {
-    ElMessage.warning("请先保存文档，再拖入图片（将写入相对路径 ./assets/）");
-    return;
-  }
-
-  try {
-    const snippets = await saveDroppedImages(images, editor.filePath);
-    if (snippets.length === 0) return;
-    const insert = `\n\n${snippets.join("\n\n")}\n`;
-    editor.setContent(`${editor.content}${insert}`);
-    ElMessage.success(
-      snippets.length === 1
-        ? "已插入图片（./assets/）"
-        : `已插入 ${snippets.length} 张图片`,
-    );
-  } catch (e) {
-    ElMessage.error(e instanceof Error ? e.message : "插入图片失败");
-  }
+  onShellDrop(event);
 }
+
+onMounted(() => {
+  void bindTauriFileDrop({
+    onOver: () => {
+      dropActive.value = true;
+    },
+    onLeave: () => {
+      dropActive.value = false;
+    },
+  }).then((unlisten) => {
+    unbindDrop = unlisten;
+  });
+});
 
 onBeforeUnmount(() => {
   dragging.value = false;
+  unbindDrop?.();
+  unbindDrop = null;
 });
 </script>
 
@@ -127,7 +123,7 @@ onBeforeUnmount(() => {
 }
 
 .split-editor.drop-active::after {
-  content: "松开以插入图片到 ./assets/";
+  content: "松开以在光标处插入图片（./assets/）";
   position: absolute;
   inset: 0;
   display: flex;

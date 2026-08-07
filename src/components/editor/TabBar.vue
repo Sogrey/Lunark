@@ -16,28 +16,32 @@ function onClose(e: MouseEvent, id: string) {
 </script>
 
 <template>
-  <div class="tab-bar" role="tablist">
-    <button
+  <div class="tab-bar" role="tablist" aria-label="打开的文档">
+    <div
       v-for="tab in tabs.tabs"
       :key="tab.id"
-      type="button"
       class="tab"
       role="tab"
+      tabindex="0"
       :aria-selected="tab.id === tabs.activeId"
       :class="{ active: tab.id === tabs.activeId, dirty: tab.dirty }"
       :title="tab.path ?? tab.name"
       @click="onSelect(tab.id)"
       @click.middle="closeTab(tab.id)"
+      @keydown.enter.prevent="onSelect(tab.id)"
+      @keydown.space.prevent="onSelect(tab.id)"
     >
       <span class="name">{{ tab.dirty ? `${tab.name} •` : tab.name }}</span>
-      <span
+      <button
+        type="button"
         class="close"
+        :aria-label="`关闭 ${tab.name}`"
         title="关闭"
         @click="onClose($event, tab.id)"
       >
         ×
-      </span>
-    </button>
+      </button>
+    </div>
   </div>
 </template>
 
@@ -59,7 +63,7 @@ function onClose(e: MouseEvent, id: string) {
   align-items: center;
   gap: 6px;
   max-width: 180px;
-  padding: 0 8px 0 12px;
+  padding: 0 4px 0 12px;
   border: 0;
   border-right: 1px solid var(--border-color);
   background: transparent;
@@ -93,12 +97,18 @@ function onClose(e: MouseEvent, id: string) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
+  border: 0;
   border-radius: 3px;
+  padding: 0;
   font-size: 14px;
   line-height: 1;
   opacity: 0.55;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 .close:hover {

@@ -1,12 +1,20 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { openPath, openUrl } from "@tauri-apps/plugin-opener";
+import { dirname, isAbsolute, join } from "@tauri-apps/api/path";
+import { isTauri } from "@tauri-apps/api/core";
+import { ElMessage } from "element-plus";
 import { useEditorStore } from "@/stores/editor";
+import { useWorkspaceStore } from "@/stores/workspace";
+import { useDocumentActions } from "@/composables/useDocumentActions";
 import { renderMarkdown } from "@/lib/markdown/renderer";
 import { resolvePreviewImages } from "@/lib/markdown/images";
 import { applyTocIdsToHtml, extractToc } from "@/lib/markdown/toc";
 import { clearMermaidCache } from "@/lib/markdown/mermaid";
 
 const editor = useEditorStore();
+const workspace = useWorkspaceStore();
+const { openPathInTab } = useDocumentActions();
 const html = ref("");
 const pane = ref<HTMLElement | null>(null);
 
@@ -36,6 +44,91 @@ watch(
   { immediate: true },
 );
 
+function isMarkdownHref(href: string): boolean {
+  return /\.(md|markdown|mdown|mkd)(?:#.*)?$/i.test(href);
+}
+
+async function resolveLocalPath(href: string): Promise<string | null> {
+  if (!isTauri()) return null;
+  let decoded = href.trim();
+  try {
+    decoded = decodeURI(decoded);
+  } catch {
+    /* keep raw */
+  }
+  if (/^(https?:|mailto:|data:|blob:|#)/i.test(decoded)) return null;
+
+  try {
+    if (await isAbsolute(decoded)) return decoded;
+    if (editor.filePath) {
+      const dir = await dirname(editor.filePath);
+      return await join(dir, decoded);
+    }
+    if (workspace.rootPath) {
+      return await join(workspace.rootPath, decoded);
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+async function onPreviewClick(event: MouseEvent) {
+  const target = event.target as HTMLElement | null;
+  const anchor = target?.closest?.("a") as HTMLAnchorElement | null;
+  if (!anchor) return;
+
+  const href = anchor.getAttribute("href");
+  if (!href) return;
+
+  // 页内锚点
+  if (href.startsWith("#")) {
+    event.preventDefault();
+    const el = document.getElementById(decodeURIComponent(href.slice(1)));
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  if (/^https?:\/\//i.test(href)) {
+    event.preventDefault();
+    try {
+      await openUrl(href);
+    } catch {
+      window.open(href, "_blank", "noopener,noreferrer");
+    }
+    return;
+  }
+
+  if (/^mailto:/i.test(href)) {
+    event.preventDefault();
+    try {
+      await openUrl(href);
+    } catch {
+      ElMessage.info("无法打开邮件链接");
+    }
+    return;
+  }
+
+  // 本地相对 / 绝对路径：md 开 Tab，其它用系统打开
+  event.preventDefault();
+  const local = await resolveLocalPath(href);
+  if (!local) {
+    ElMessage.info("无法解析该链接");
+    return;
+  }
+
+  if (isMarkdownHref(local) || isMarkdownHref(href)) {
+    await openPathInTab(local.replace(/#.*$/, ""));
+    return;
+  }
+
+  try {
+    await openPath(local);
+  } catch {
+    ElMessage.warning(`无法打开：${local}`);
+  }
+}
+
 onMounted(() => {
   clearMermaidCache();
   editor.setPreviewEl(pane.value);
@@ -53,7 +146,7 @@ const empty = computed(() => !editor.content.trim());
 </script>
 
 <template>
-  <div ref="pane" class="preview-pane">
+  <div ref="pane" class="preview-pane" @click="onPreviewClick">
     <div v-if="empty" class="preview-empty">开始输入 Markdown…</div>
     <article
       v-else
@@ -80,6 +173,11 @@ const empty = computed(() => !editor.content.trim());
 .preview-pane :deep(.markdown-preview img) {
   max-width: 100%;
   height: auto;
+}
+
+.preview-pane :deep(.markdown-preview .task-list-item input) {
+  pointer-events: none;
+  opacity: 0.85;
 }
 
 .preview-pane :deep(.markdown-preview h1),
