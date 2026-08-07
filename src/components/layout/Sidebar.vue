@@ -42,19 +42,21 @@ const { openPathInTab, openFolder, refreshFolder } = useDocumentActions();
           <button
             type="button"
             class="icon-btn"
-            title="打开文件夹"
+            title="打开文件夹 (Ctrl+Shift+O)"
+            aria-label="打开文件夹"
             @click="openFolder"
           >
-            开
+            打开
           </button>
           <button
             type="button"
             class="icon-btn"
-            title="刷新"
+            title="刷新文件树"
+            aria-label="刷新文件树"
             :disabled="!workspace.rootPath || workspace.treeLoading"
             @click="refreshFolder"
           >
-            刷
+            刷新
           </button>
         </div>
       </div>
@@ -75,7 +77,7 @@ const { openPathInTab, openFolder, refreshFolder } = useDocumentActions();
         </div>
       </template>
       <p v-else class="hint">
-        点击「开」或工具栏「文件夹」选择工作区，列出其中的 `.md` 文件。
+        点击「打开」或工具栏「文件夹」选择工作区，列出其中的 `.md` 文件。
       </p>
     </div>
 
