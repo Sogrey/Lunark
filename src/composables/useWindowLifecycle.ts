@@ -3,7 +3,6 @@ import { LogicalSize, LogicalPosition } from "@tauri-apps/api/dpi";
 import { isTauri } from "@tauri-apps/api/core";
 import { watch, type WatchStopHandle } from "vue";
 import { useEditorStore } from "@/stores/editor";
-import { useTabsStore } from "@/stores/tabs";
 import { useDocumentActions } from "@/composables/useDocumentActions";
 import type { WindowGeometry } from "@/lib/prefs/store";
 
@@ -12,7 +11,6 @@ import type { WindowGeometry } from "@/lib/prefs/store";
  */
 export function useWindowLifecycle() {
   const editor = useEditorStore();
-  const tabs = useTabsStore();
   const { confirmCloseWithSave } = useDocumentActions();
 
   let stopTitle: WatchStopHandle | null = null;
@@ -21,10 +19,14 @@ export function useWindowLifecycle() {
   let onGeometrySave: ((geo: WindowGeometry) => void) | null = null;
 
   async function syncTitle() {
-    if (!isTauri()) return;
+    if (!isTauri()) {
+      if (typeof document !== "undefined") {
+        document.title = editor.windowTitle;
+      }
+      return;
+    }
     try {
-      const title = `${editor.title} — Lunark`;
-      await getCurrentWindow().setTitle(title);
+      await getCurrentWindow().setTitle(editor.windowTitle);
     } catch {
       /* ignore */
     }
@@ -73,16 +75,22 @@ export function useWindowLifecycle() {
     onGeometry?: (geo: WindowGeometry) => void;
   }) {
     if (!isTauri()) {
-      stopTitle = watch(() => editor.title, syncTitle, { immediate: true });
+      stopTitle = watch(
+        () => editor.windowTitle,
+        syncTitle,
+        { immediate: true },
+      );
       return;
     }
 
     onGeometrySave = opts?.onGeometry ?? null;
     if (opts?.geometry) await restoreGeometry(opts.geometry);
 
-    stopTitle = watch(() => [editor.title, tabs.activeId] as const, syncTitle, {
-      immediate: true,
-    });
+    stopTitle = watch(
+      () => editor.windowTitle,
+      syncTitle,
+      { immediate: true },
+    );
 
     const win = getCurrentWindow();
     // Tauri 2：监听 closeRequested 后需自行 destroy（capabilities 需 allow-destroy）

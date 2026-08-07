@@ -15,6 +15,7 @@ package-lock.json
 yarn.lock
 bun.lockb
 bun.lock
+tmp
 
 # Editor directories and files
 .vscode/*

@@ -2,7 +2,7 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import type { TreeNode } from "@/lib/fs/workspaceIo";
 
-export type SidebarPanel = "files" | "outline";
+export type SidebarPanel = "files" | "outline" | "search";
 
 export const useWorkspaceStore = defineStore("workspace", () => {
   const rootPath = ref<string | null>(null);
