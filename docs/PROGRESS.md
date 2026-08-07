@@ -1,6 +1,6 @@
 # 开发进度日志
 
-> 对照仓库代码盘点。最近核对：**2026-08-07**（一期收口）。
+> 对照仓库代码盘点。最近核对：**2026-08-08**。
 
 ## 总览
 
@@ -8,7 +8,7 @@
 |---|---|---|
 | 工程基建 | Tauri2 + Vue3 + pnpm 锁定 + 插件 | **完成** |
 | 一期 MVP（方案 B 双栏） | 见 [ROADMAP.md](./ROADMAP.md) | **完成（含打磨）** |
-| 二期 | WYSIWYG（Milkdown Crepe）对标 Typora | **进行中 · M1–M3 完成** |
+| 二期 | WYSIWYG（Milkdown Crepe）对标 Typora | **核心完成 · M4 部分（内置主题）** |
 | 三期 | 会话 / 全局搜索 / Vim | **进行中 · Vim 待做** |
 
 ## 已完成清单
@@ -24,12 +24,19 @@
 | 预览链接（md Tab / 外链 / mailto / 本地文件） | ✅ | PreviewPane + opener |
 | 切 Tab 保留撤销栈 | ✅ | `tabEditorStates` |
 | Welcome 被真文件替换 | ✅ | `tabs.openOrFocus` |
-| 原生菜单 + 快捷键（防双触发） | ✅ | `appMenu` + `useMenuBridge` |
+| 原生菜单 + 快捷键（防双触发） | ✅ | `appMenu` + `useMenuBridge`（无 Toolbar） |
 | Ctrl+Tab 切标签 | ✅ | `useMenuBridge` |
 | 窗口几何持久化 | ✅ | prefs.window |
 | 外部文件变更提示重载 | ✅ | `useExternalFileWatch` |
 | 导出 HTML / PDF（Typst） | ✅ | 见下 |
 | 查找匹配计数 / 全部替换确认 | ✅ | SearchBar |
+| Crepe 混合编辑（M1–M3） | ✅ | `HybridEditor` + Focus / 打字机 / 字数 |
+| 布局精简 | ✅ | `MenuChrome` + `StatusBar`；去 `Toolbar` |
+| 内置主题菜单 | ✅ | 主题：Github / Newsprint / Night / Pixyll / Whitey |
+| 右键菜单 / 表格浮动条 | ✅ | `EditorContextMenu`、`TableToolbar`；块动作对齐 Crepe「+」 |
+| 会话 / 最近打开 / 工作区搜索 | ✅ | `session` store、`GlobalSearchPanel` |
+| 应用图标（月刻） | ✅ | `app-icon.svg` → `tauri icon` |
+| Windows NSIS 安装包 | ✅ | `bundle.targets: ["nsis"]` |
 
 ### PDF 导出（Typst）细节
 
@@ -44,8 +51,11 @@
 
 ## 建议下一迭代
 
-三期剩余：**Vim 编辑模式**（可选）。  
-会话记忆、最近打开、工作区全局搜索已齐。二期 M4（主题/图床/Word）仍后置。
+| 优先级 | 项 |
+|---|---|
+| 可选 | 三期 **Vim** 编辑模式 |
+| 后置 M4 余量 | 自定义主题 CSS 导入、图床、Word / 图片导出 |
+| 体验债 | 混合模式多表格身份匹配、Shiki 随亮色主题切换 |
 
 ## 迭代记录
 
@@ -63,4 +73,8 @@
 | 2026-08-07 | **二期 M3**：字数状态栏、Focus（F8）、打字机（F9）、prefs |
 | 2026-08-07 | **三期启动**：标签会话记忆 + 最近打开（侧栏/菜单） |
 | 2026-08-07 | **三期**：工作区全局搜索（侧栏「搜索」· Ctrl+Shift+F） |
-| 2026-08-08 | 布局精简：去工具栏；标题含模式；MenuChrome 图标；Typora 风状态栏 |
+| 2026-08-08 | 布局精简：去工具栏；标题含模式；MenuChrome；Typora 风状态栏 |
+| 2026-08-08 | 右键菜单 / 表格浮动工具条；块动作与 Crepe「+」同源 |
+| 2026-08-08 | **主题菜单**：五套内置主题 + prefs 持久化；CM/Mermaid 随明暗适配 |
+| 2026-08-08 | 应用图标（月刻 SVG）；运行时 `set_icon`；NSIS 打包（规避 WiX 超时） |
+| 2026-08-08 | 风险修复：`jumpToLine` 等 CM 就绪、查找切源码提示、`clearFormatBridge` |

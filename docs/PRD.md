@@ -1,6 +1,7 @@
 # Lunark（月刻）产品与技术说明
 
-> 目标：基于 **Tauri 2.x + Vue3 + TS + Pinia + Vite + Element‑Plus(按需 Message)**，优先落地 Night 暗色主题，做轻量跨平台本地 Markdown 编辑器。
+> 目标：基于 **Tauri 2.x + Vue3 + TS + Pinia + Vite + Element‑Plus(按需 Message)**，优先落地 Night 暗色主题，做轻量跨平台本地 Markdown 编辑器。  
+> 实现进度以 [PROGRESS.md](./PROGRESS.md) / [ROADMAP.md](./ROADMAP.md) 为准（最近核对：**2026-08-08**）。
 
 ## 一、产品定位与能力清单
 
@@ -22,16 +23,18 @@
    - KaTeX 数学公式（行内 / 块级）
    - 代码块语法高亮（多语言）
 5. **界面组件**
-   - 侧边栏：文件树、文件 Tab 多文档
-   - 大纲面板：标题 TOC 快速跳转
+   - 侧边栏：文件树、大纲、工作区搜索；文件 Tab 多文档
+   - 无可见工具栏：原生菜单 + 轻量 MenuChrome + Typora 风状态栏
+   - 大纲 TOC 快速跳转；右键菜单；表格浮动工具条
    - 专注模式 Focus、打字机 Typewriter（二期）
    - 字数统计、行号、搜索替换
 6. **文件能力**
    - 直接读写本地 `.md`，拖拽图片，相对路径存储
-   - 导出：PDF / HTML / Word / 图片
+   - 导出：PDF / HTML（Word / 图片后置）
+   - 会话记忆、最近打开、Windows NSIS 安装包
 7. **主题系统**
-   - 原生 Night 暗色主题：深灰背景、低饱和度文本、柔和高亮；适配源码、Mermaid、表格
-   - CSS 变量驱动，可扩展亮色 / 第三方主题
+   - 默认 Night；菜单可切换 Github / Newsprint / Night / Pixyll / Whitey
+   - CSS 变量驱动；自定义主题文件导入后置
 
 ### 3. 产品优势方向
 1. Tauri 2：包体积小、启动快、内存占用低（相对 Chromium 壳）
@@ -85,7 +88,7 @@
 
 ## 三、MVP 版本功能规划
 > 优先级 P0 必须做，P1 后续迭代。  
-> **实现进度以 [PROGRESS.md](./PROGRESS.md) / [ROADMAP.md](./ROADMAP.md) 为准**（最近核对：**一期完成 / 收口**，2026-08-07）。
+> 实现进度以 [PROGRESS.md](./PROGRESS.md) / [ROADMAP.md](./ROADMAP.md) 为准（最近核对：**2026-08-08**）。
 
 ### P0（MVP，第一版）— 方案 B 双栏 — **已完成**
 1. ✅ Tauri 窗口：打开本地文件夹，文件树浏览 md；多 Tab 打开文档（Ctrl+Tab；外部变更提示）
@@ -102,8 +105,8 @@
 ### P1（二期）— 一体化改造
 1. ✅ **混合 WYSIWYG 一体化编辑（Milkdown Crepe · M1/M2）**
 2. ✅ Focus 专注模式、打字机模式（M3）
-3. ✅ 字数统计（M3）
-4. ⬜ 自定义主题 CSS 导入（M4 后置）
+3. ✅ 字数统计（M3）；布局精简（菜单 + 状态栏）；右键 / 表格工具条
+4. ✅ 内置主题菜单切换（M4 子集）；⬜ 自定义主题 CSS 导入（后置）
 5. ⬜ 图片管理、简单图床（M4 后置）
 6. ⬜ 导出 Word、图片（M4 后置）
 
@@ -116,7 +119,8 @@
 > ✅ 已选：**Lunark（月刻）**
 
 ## 五、风险与踩坑提示
-1. **WYSIWYG 一体化是最大难点**：不进 MVP；二期可评估 Milkdown / TipTap / Vditor IR。
-2. Night 主题：不要只改背景色，要完整适配代码块、Mermaid、表格、引用、源码视图、选中色。
+1. **WYSIWYG 一体化**：二期已采用 Milkdown Crepe；查找仍依赖源码模式（混合下会提示并切换）。
+2. 主题：CSS 变量驱动；勿只改背景。亮色主题下预览 Shiki 仍可能偏暗色（已知债）。
 3. Tauri 本地图片：相对路径必须走 asset 协议。
 4. 大文档性能：CodeMirror 6 增量渲染，markdown-it 防抖，避免输入时频繁重绘。
+5. Windows 打包：当前默认 NSIS；MSI 需 WiX（GitHub 下载可能超时）。改图标后需完整重建/重启 exe。
