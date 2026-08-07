@@ -1,0 +1,41 @@
+/* Typora-like Github（亮色） */
+[data-theme="github"] {
+  --bg-color: #ffffff;
+  --side-bar-bg-color: #f6f8fa;
+  --text-color: #24292e;
+  --heading-color: #1b1f23;
+  --heading-strong-color: #000000;
+  --select-text-bg-color: #0366d6;
+  --select-text-color: #ffffff;
+  --primary-color: #0366d6;
+  --primary-color-alt: #2188ff;
+  --control-text-color: #586069;
+  --control-text-hover-color: #24292e;
+  --window-border: 1px solid #e1e4e8;
+  --active-file-bg-color: #eaf2ff;
+  --active-file-text-color: #24292e;
+  --active-file-border-color: #0366d6;
+  --item-hover-bg-color: #e1e4e8;
+  --item-hover-text-color: #24292e;
+  --rawblock-edit-panel-bd: #f6f8fa;
+  --search-select-bg-color: #0366d6;
+  --border-color: #e1e4e8;
+  --code-bg: #f6f8fa;
+  --blockquote-color: #6a737d;
+  --link-color: #0366d6;
+  --link-hover-color: #005cc5;
+  --focus-dim-color: #959da5;
+  --toc-color: #0366d6;
+  --toolbar-bg: #f6f8fa;
+  --splitter-color: #e1e4e8;
+  --splitter-hover: #0366d6;
+  --scrollbar-thumb: rgba(27, 31, 35, 0.2);
+  --scrollbar-thumb-active: rgba(27, 31, 35, 0.35);
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
+    "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
+    "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-heading: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica,
+    Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+}

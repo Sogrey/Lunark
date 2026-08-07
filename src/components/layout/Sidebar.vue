@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import FileTreeNode from "@/components/sidebar/FileTreeNode.vue";
 import OutlinePanel from "@/components/sidebar/OutlinePanel.vue";
+import GlobalSearchPanel from "@/components/sidebar/GlobalSearchPanel.vue";
 import { useWorkspaceStore } from "@/stores/workspace";
+import { useSessionStore } from "@/stores/session";
 import { useDocumentActions } from "@/composables/useDocumentActions";
 
 const workspace = useWorkspaceStore();
-const { openPathInTab, openFolder, refreshFolder } = useDocumentActions();
+const session = useSessionStore();
+const { openPathInTab, openFolder, refreshFolder, clearRecentFiles } =
+  useDocumentActions();
 </script>
 
 <template>
@@ -30,6 +34,17 @@ const { openPathInTab, openFolder, refreshFolder } = useDocumentActions();
         @click="workspace.setSidebarPanel('outline')"
       >
         大纲
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="panel-tab"
+        :aria-selected="workspace.sidebarPanel === 'search'"
+        :class="{ active: workspace.sidebarPanel === 'search' }"
+        title="Ctrl+Shift+F"
+        @click="workspace.setSidebarPanel('search')"
+      >
+        搜索
       </button>
     </div>
 
@@ -79,10 +94,39 @@ const { openPathInTab, openFolder, refreshFolder } = useDocumentActions();
       <p v-else class="hint">
         点击「打开」或工具栏「文件夹」选择工作区，列出其中的 `.md` 文件。
       </p>
+
+      <div v-if="session.recentFiles.length > 0" class="recent">
+        <div class="recent-head">
+          <span class="recent-title">最近打开</span>
+          <button
+            type="button"
+            class="icon-btn"
+            title="清除最近打开"
+            aria-label="清除最近打开"
+            @click="clearRecentFiles"
+          >
+            清除
+          </button>
+        </div>
+        <button
+          v-for="item in session.recentFiles"
+          :key="item.path"
+          type="button"
+          class="recent-item"
+          :title="item.path"
+          @click="openPathInTab(item.path)"
+        >
+          {{ item.name }}
+        </button>
+      </div>
+    </div>
+
+    <div v-else-if="workspace.sidebarPanel === 'outline'" class="panel-body">
+      <OutlinePanel />
     </div>
 
     <div v-else class="panel-body">
-      <OutlinePanel />
+      <GlobalSearchPanel />
     </div>
   </aside>
 </template>
@@ -183,5 +227,47 @@ const { openPathInTab, openFolder, refreshFolder } = useDocumentActions();
 
 .tree {
   min-height: 0;
+}
+
+.recent {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.recent-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 2px 8px;
+}
+
+.recent-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--control-text-color);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.recent-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: var(--text-color);
+  font-size: 12px;
+  padding: 5px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-item:hover {
+  background: var(--item-hover-bg-color);
+  color: var(--item-hover-text-color);
 }
 </style>

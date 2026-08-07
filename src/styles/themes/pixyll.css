@@ -1,0 +1,41 @@
+/* Typora-like Pixyll（简洁亮色） */
+[data-theme="pixyll"] {
+  --bg-color: #ffffff;
+  --side-bar-bg-color: #f9f9f9;
+  --text-color: #333333;
+  --heading-color: #222222;
+  --heading-strong-color: #111111;
+  --select-text-bg-color: #2484c1;
+  --select-text-color: #ffffff;
+  --primary-color: #2484c1;
+  --primary-color-alt: #3a9ad4;
+  --control-text-color: #666666;
+  --control-text-hover-color: #222222;
+  --window-border: 1px solid #e5e5e5;
+  --active-file-bg-color: #e8f4fb;
+  --active-file-text-color: #222222;
+  --active-file-border-color: #2484c1;
+  --item-hover-bg-color: #eeeeee;
+  --item-hover-text-color: #222222;
+  --rawblock-edit-panel-bd: #f5f5f5;
+  --search-select-bg-color: #2484c1;
+  --border-color: #e5e5e5;
+  --code-bg: #f5f5f5;
+  --blockquote-color: #777777;
+  --link-color: #2484c1;
+  --link-hover-color: #1a6a9a;
+  --focus-dim-color: #999999;
+  --toc-color: #2484c1;
+  --toolbar-bg: #f9f9f9;
+  --splitter-color: #e5e5e5;
+  --splitter-hover: #2484c1;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.18);
+  --scrollbar-thumb-active: rgba(0, 0, 0, 0.3);
+  --font-ui: "Helvetica Neue", Helvetica, Arial, "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  --font-body: "Helvetica Neue", Helvetica, Arial, "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  --font-heading: "Helvetica Neue", Helvetica, Arial, "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  --font-mono: Menlo, Monaco, Consolas, monospace;
+}

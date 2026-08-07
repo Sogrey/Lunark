@@ -1,0 +1,40 @@
+/* Typora-like Newsprint（纸质浅褐） */
+[data-theme="newsprint"] {
+  --bg-color: #f3f2ee;
+  --side-bar-bg-color: #eae8e1;
+  --text-color: #3f392b;
+  --heading-color: #2c271d;
+  --heading-strong-color: #1a160f;
+  --select-text-bg-color: #b7a57a;
+  --select-text-color: #1a160f;
+  --primary-color: #7a6a45;
+  --primary-color-alt: #9a8758;
+  --control-text-color: #6b6352;
+  --control-text-hover-color: #2c271d;
+  --window-border: 1px solid #d4cfc3;
+  --active-file-bg-color: #ddd6c6;
+  --active-file-text-color: #2c271d;
+  --active-file-border-color: #7a6a45;
+  --item-hover-bg-color: #ddd6c6;
+  --item-hover-text-color: #2c271d;
+  --rawblock-edit-panel-bd: #eae8e1;
+  --search-select-bg-color: #b7a57a;
+  --border-color: #d4cfc3;
+  --code-bg: #e6e2d8;
+  --blockquote-color: #7a7364;
+  --link-color: #5c4f32;
+  --link-hover-color: #2c271d;
+  --focus-dim-color: #a39a86;
+  --toc-color: #7a6a45;
+  --toolbar-bg: #eae8e1;
+  --splitter-color: #d4cfc3;
+  --splitter-hover: #7a6a45;
+  --scrollbar-thumb: rgba(63, 57, 43, 0.25);
+  --scrollbar-thumb-active: rgba(63, 57, 43, 0.4);
+  --font-ui: "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --font-body: "Palatino Linotype", Palatino, "Book Antiqua", Georgia,
+    "PingFang SC", "Microsoft YaHei", serif;
+  --font-heading: "Palatino Linotype", Palatino, Georgia, "PingFang SC",
+    "Microsoft YaHei", serif;
+  --font-mono: Consolas, "Courier New", monospace;
+}

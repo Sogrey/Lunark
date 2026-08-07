@@ -1,5 +1,6 @@
 import { highlightCode } from "@/lib/markdown/shiki";
 import { renderMermaidSvg } from "@/lib/markdown/mermaid";
+import { useThemeStore } from "@/stores/theme";
 
 function decodeEntities(text: string): string {
   const el = document.createElement("textarea");
@@ -37,7 +38,8 @@ export async function enhanceFencedBlocks(html: string): Promise<string> {
       const raw = decodeEntities(codeEl.textContent ?? "");
 
       if (lang.toLowerCase() === "mermaid") {
-        const svg = await renderMermaidSvg(raw);
+        const mode = useThemeStore().mermaidMode;
+        const svg = await renderMermaidSvg(raw, mode);
         const wrap = doc.createElement("div");
         wrap.className = "mermaid-block";
         wrap.innerHTML = svg;

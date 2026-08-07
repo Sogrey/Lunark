@@ -1,0 +1,41 @@
+/* Typora-like Whitey（极简白） */
+[data-theme="whitey"] {
+  --bg-color: #fefefe;
+  --side-bar-bg-color: #f7f7f7;
+  --text-color: #333333;
+  --heading-color: #111111;
+  --heading-strong-color: #000000;
+  --select-text-bg-color: #333333;
+  --select-text-color: #ffffff;
+  --primary-color: #555555;
+  --primary-color-alt: #777777;
+  --control-text-color: #777777;
+  --control-text-hover-color: #111111;
+  --window-border: 1px solid #e8e8e8;
+  --active-file-bg-color: #eeeeee;
+  --active-file-text-color: #111111;
+  --active-file-border-color: #555555;
+  --item-hover-bg-color: #eeeeee;
+  --item-hover-text-color: #111111;
+  --rawblock-edit-panel-bd: #f5f5f5;
+  --search-select-bg-color: #555555;
+  --border-color: #e8e8e8;
+  --code-bg: #f4f4f4;
+  --blockquote-color: #888888;
+  --link-color: #333333;
+  --link-hover-color: #000000;
+  --focus-dim-color: #aaaaaa;
+  --toc-color: #555555;
+  --toolbar-bg: #f7f7f7;
+  --splitter-color: #e8e8e8;
+  --splitter-hover: #555555;
+  --scrollbar-thumb: rgba(0, 0, 0, 0.15);
+  --scrollbar-thumb-active: rgba(0, 0, 0, 0.28);
+  --font-ui: Georgia, "Times New Roman", Times, "PingFang SC",
+    "Microsoft YaHei", serif;
+  --font-body: Georgia, "Times New Roman", Times, "PingFang SC",
+    "Microsoft YaHei", serif;
+  --font-heading: Georgia, "Times New Roman", Times, "PingFang SC",
+    "Microsoft YaHei", serif;
+  --font-mono: Consolas, "Courier New", monospace;
+}
