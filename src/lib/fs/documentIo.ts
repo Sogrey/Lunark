@@ -65,6 +65,20 @@ export async function pickSaveHtml(
   });
 }
 
+export async function pickSavePdf(
+  defaultPath?: string | null,
+): Promise<string | null> {
+  requireTauri();
+  return await save({
+    title: "导出 PDF",
+    defaultPath: defaultPath ?? "export.pdf",
+    filters: [
+      { name: "PDF", extensions: ["pdf"] },
+      { name: "All", extensions: ["*"] },
+    ],
+  });
+}
+
 export async function readMarkdownFile(path: string): Promise<string> {
   requireTauri();
   return await readTextFile(path);

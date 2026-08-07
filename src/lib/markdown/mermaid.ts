@@ -1,11 +1,49 @@
 import mermaid from "mermaid";
 
-let initialized = false;
+export type MermaidThemeMode = "dark" | "light";
+
+let activeMode: MermaidThemeMode | null = null;
 const svgCache = new Map<string, string>();
 let renderSeq = 0;
 
-function ensureInit() {
-  if (initialized) return;
+function ensureInit(mode: MermaidThemeMode) {
+  if (activeMode === mode) return;
+  activeMode = mode;
+  svgCache.clear();
+
+  if (mode === "light") {
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "antiscript",
+      theme: "default",
+      flowchart: {
+        // false：生成 SVG <text>，浏览器栅格化与 Typst 都能保留文字
+        // true：foreignObject，<img>/Typst 都会变成空框
+        htmlLabels: false,
+        useMaxWidth: false,
+      },
+      themeVariables: {
+        darkMode: false,
+        background: "#ffffff",
+        primaryColor: "#e8f4fc",
+        primaryTextColor: "#1a1a1a",
+        primaryBorderColor: "#4a90c8",
+        secondaryColor: "#f5f5f5",
+        tertiaryColor: "#eeeeee",
+        lineColor: "#555555",
+        textColor: "#1a1a1a",
+        mainBkg: "#e8f4fc",
+        nodeBorder: "#4a90c8",
+        clusterBkg: "#f7f7f7",
+        titleColor: "#111111",
+        edgeLabelBackground: "#ffffff",
+        fontFamily:
+          '"Microsoft YaHei", "PingFang SC", "Helvetica Neue", Arial, sans-serif',
+      },
+    });
+    return;
+  }
+
   mermaid.initialize({
     startOnLoad: false,
     // strict 会剥掉 foreignObject 内 HTML 标签文字，节点变成空框
@@ -34,7 +72,6 @@ function ensureInit() {
         '"Helvetica Neue", Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif',
     },
   });
-  initialized = true;
 }
 
 function escapeHtml(text: string): string {
@@ -44,26 +81,29 @@ function escapeHtml(text: string): string {
     .replace(/>/g, "&gt;");
 }
 
-export async function renderMermaidSvg(source: string): Promise<string> {
+export async function renderMermaidSvg(
+  source: string,
+  mode: MermaidThemeMode = "dark",
+): Promise<string> {
   const code = source.trim();
   if (!code) return "";
 
-  const cached = svgCache.get(code);
+  const cacheKey = `${mode}::${code}`;
+  const cached = svgCache.get(cacheKey);
   if (cached) return cached;
 
-  ensureInit();
+  ensureInit(mode);
   const id = `lunark-mermaid-${++renderSeq}`;
 
   try {
     const { svg } = await mermaid.render(id, code);
-    svgCache.set(code, svg);
+    svgCache.set(cacheKey, svg);
     if (svgCache.size > 80) {
       const first = svgCache.keys().next().value;
       if (first) svgCache.delete(first);
     }
     return svg;
   } catch (e) {
-    // 失败时清掉同 id 残留节点
     document.getElementById(id)?.remove();
     const message = e instanceof Error ? e.message : String(e);
     return `<pre class="mermaid-error">Mermaid 渲染失败\n${escapeHtml(message)}\n\n${escapeHtml(code)}</pre>`;
@@ -73,5 +113,5 @@ export async function renderMermaidSvg(source: string): Promise<string> {
 /** 主题或消毒策略变更后可调用，避免命中旧（无文字）缓存 */
 export function clearMermaidCache() {
   svgCache.clear();
-  initialized = false;
+  activeMode = null;
 }

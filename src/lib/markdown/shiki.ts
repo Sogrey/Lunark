@@ -1,32 +1,16 @@
 import { createHighlighter, type Highlighter } from "shiki";
 
-const LANGS = [
+/** 首屏只预加载常用语言，其余按需 loadLanguage */
+const BOOT_LANGS = [
   "typescript",
   "javascript",
-  "tsx",
-  "jsx",
   "json",
-  "html",
-  "css",
-  "scss",
+  "markdown",
   "rust",
   "python",
   "bash",
-  "shell",
-  "powershell",
-  "markdown",
-  "yaml",
-  "toml",
-  "sql",
-  "go",
-  "java",
-  "c",
-  "cpp",
-  "xml",
-  "vue",
-  "diff",
-  "dockerfile",
-  "ini",
+  "html",
+  "css",
 ] as const;
 
 const THEME = "one-dark-pro";
@@ -37,7 +21,7 @@ function getHighlighter(): Promise<Highlighter> {
   if (!highlighterPromise) {
     highlighterPromise = createHighlighter({
       themes: [THEME],
-      langs: [...LANGS],
+      langs: [...BOOT_LANGS],
     });
   }
   return highlighterPromise;
@@ -63,8 +47,19 @@ function normalizeLang(lang: string): string {
 export async function highlightCode(code: string, lang: string): Promise<string> {
   const highlighter = await getHighlighter();
   const normalized = normalizeLang(lang || "text");
+
+  let useLang = "text";
   const loaded = highlighter.getLoadedLanguages();
-  const useLang = loaded.includes(normalized as never) ? normalized : "text";
+  if (loaded.includes(normalized as never)) {
+    useLang = normalized;
+  } else if (normalized && normalized !== "text") {
+    try {
+      await highlighter.loadLanguage(normalized as never);
+      useLang = normalized;
+    } catch {
+      useLang = "text";
+    }
+  }
 
   try {
     return highlighter.codeToHtml(code, {

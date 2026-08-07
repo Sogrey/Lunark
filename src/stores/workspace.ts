@@ -22,6 +22,11 @@ export const useWorkspaceStore = defineStore("workspace", () => {
     sidebarVisible.value = true;
   }
 
+  function applySidebarPrefs(visible: boolean, panel: SidebarPanel) {
+    sidebarPanel.value = panel;
+    sidebarVisible.value = visible;
+  }
+
   function setWorkspace(path: string, name: string, nodes: TreeNode[]) {
     rootPath.value = path;
     rootName.value = name;
@@ -61,6 +66,7 @@ export const useWorkspaceStore = defineStore("workspace", () => {
     expandedPaths,
     toggleSidebar,
     setSidebarPanel,
+    applySidebarPrefs,
     setWorkspace,
     clearWorkspace,
     toggleExpanded,

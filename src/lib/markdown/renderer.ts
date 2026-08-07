@@ -4,6 +4,7 @@ import markdownItTaskLists from "markdown-it-task-lists";
 import { katex } from "@mdit/plugin-katex";
 import DOMPurify from "dompurify";
 import { enhanceFencedBlocks } from "@/lib/markdown/enhance";
+import { normalizeImageDestinations } from "@/lib/markdown/normalizeImages";
 
 const md = new MarkdownIt({
   html: false,
@@ -11,8 +12,9 @@ const md = new MarkdownIt({
   typographer: true,
   breaks: false,
 })
+  .enable("strikethrough")
   .use(markdownItFootnote)
-  .use(markdownItTaskLists, { enabled: true, label: true })
+  .use(markdownItTaskLists, { enabled: false, label: true })
   .use(katex, {
     // 允许 $...$ / $$...$$
     delimiters: "dollars",
@@ -87,7 +89,8 @@ function sanitizeHtml(html: string): string {
 
 export async function renderMarkdown(source: string): Promise<RenderResult> {
   const { matter, body } = splitFrontMatter(source);
-  const bodyHtml = md.render(body);
+  const normalized = normalizeImageDestinations(body);
+  const bodyHtml = md.render(normalized);
   // 先消毒普通 HTML，再注入 Mermaid/Shiki，避免 SVG foreignObject 内文字被剥掉
   const safe = sanitizeHtml(bodyHtml);
   const enhanced = await enhanceFencedBlocks(safe);

@@ -63,6 +63,26 @@ export const useTabsStore = defineStore("tabs", () => {
         return existing.id;
       }
     }
+
+    // 打开真实文件时，替换未修改的 Welcome 页，避免堆 Tab
+    if (path) {
+      const welcomeOnly =
+        tabs.value.length === 1 &&
+        tabs.value[0] &&
+        !tabs.value[0].path &&
+        tabs.value[0].name === "Welcome.md" &&
+        !tabs.value[0].dirty;
+      if (welcomeOnly) {
+        const tab = tabs.value[0]!;
+        tab.path = path;
+        tab.name = name;
+        tab.content = content;
+        tab.dirty = false;
+        activeId.value = tab.id;
+        return tab.id;
+      }
+    }
+
     const tab: DocTab = {
       id: createId(),
       path,
@@ -114,6 +134,20 @@ export const useTabsStore = defineStore("tabs", () => {
     activeId.value = tab.id;
   }
 
+  function activateNext() {
+    if (tabs.value.length < 2) return;
+    const i = activeIndex.value;
+    const next = tabs.value[(i + 1) % tabs.value.length]!;
+    activeId.value = next.id;
+  }
+
+  function activatePrev() {
+    if (tabs.value.length < 2) return;
+    const i = activeIndex.value;
+    const prev = tabs.value[(i - 1 + tabs.value.length) % tabs.value.length]!;
+    activeId.value = prev.id;
+  }
+
   return {
     tabs,
     activeId,
@@ -122,6 +156,8 @@ export const useTabsStore = defineStore("tabs", () => {
     setActiveContent,
     markActiveSaved,
     activate,
+    activateNext,
+    activatePrev,
     openOrFocus,
     updateActiveMeta,
     closeTab,

@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { computed, ref, shallowRef } from "vue";
 import { EditorView } from "@codemirror/view";
 import { useTabsStore } from "@/stores/tabs";
+import { insertTextAtCursor } from "@/lib/editor/insertText";
 
 export type ViewMode = "split" | "source";
 
@@ -13,6 +14,8 @@ export const useEditorStore = defineStore("editor", () => {
   const cmView = shallowRef<EditorView | null>(null);
   const previewEl = shallowRef<HTMLElement | null>(null);
   const scrollSyncEnabled = ref(true);
+  const searchOpen = ref(false);
+  const searchReplaceVisible = ref(false);
 
   const content = computed(() => tabs.activeTab.content);
   const dirty = computed(() => tabs.activeTab.dirty);
@@ -34,6 +37,10 @@ export const useEditorStore = defineStore("editor", () => {
     viewMode.value = viewMode.value === "split" ? "source" : "split";
   }
 
+  function setViewMode(mode: ViewMode) {
+    viewMode.value = mode;
+  }
+
   function setSplitRatio(ratio: number) {
     splitRatio.value = Math.min(0.8, Math.max(0.2, ratio));
   }
@@ -52,6 +59,38 @@ export const useEditorStore = defineStore("editor", () => {
 
   function setScrollSyncEnabled(enabled: boolean) {
     scrollSyncEnabled.value = enabled;
+  }
+
+  function toggleScrollSync() {
+    scrollSyncEnabled.value = !scrollSyncEnabled.value;
+  }
+
+  /** 在 CM 光标处插入；无编辑器时追加到文末 */
+  function insertAtCursor(text: string) {
+    const view = cmView.value;
+    if (view) {
+      insertTextAtCursor(view, text);
+      setContent(view.state.doc.toString());
+      return;
+    }
+    const next =
+      content.value && !content.value.endsWith("\n")
+        ? `${content.value}\n\n${text}\n`
+        : `${content.value}${text}\n`;
+    setContent(next);
+  }
+
+  function openSearch(opts?: { replace?: boolean }) {
+    searchOpen.value = true;
+    if (opts?.replace) searchReplaceVisible.value = true;
+  }
+
+  function closeSearch() {
+    searchOpen.value = false;
+  }
+
+  function toggleSearchReplace() {
+    searchReplaceVisible.value = !searchReplaceVisible.value;
   }
 
   /** 跳转到源码行（1-based）并滚动预览标题 */
@@ -84,14 +123,22 @@ export const useEditorStore = defineStore("editor", () => {
     cmView,
     previewEl,
     scrollSyncEnabled,
+    searchOpen,
+    searchReplaceVisible,
     setContent,
     markSaved,
     toggleViewMode,
+    setViewMode,
     setSplitRatio,
     openDocument,
     setCmView,
     setPreviewEl,
     setScrollSyncEnabled,
+    toggleScrollSync,
+    insertAtCursor,
+    openSearch,
+    closeSearch,
+    toggleSearchReplace,
     jumpToHeading,
   };
 });
