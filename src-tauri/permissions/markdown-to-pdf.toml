@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-markdown-to-pdf"
+description = "允许使用 Typst 将 Markdown 导出为 PDF"
+commands.allow = ["markdown_to_pdf"]
