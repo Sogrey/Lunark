@@ -85,18 +85,19 @@
 
 ## 三、MVP 版本功能规划
 > 优先级 P0 必须做，P1 后续迭代。  
-> **实现进度以 [PROGRESS.md](./PROGRESS.md) / [ROADMAP.md](./ROADMAP.md) 为准**（最近核对约一期 **95%**，2026-08-06）。
+> **实现进度以 [PROGRESS.md](./PROGRESS.md) / [ROADMAP.md](./ROADMAP.md) 为准**（最近核对：**一期完成 / 收口**，2026-08-07）。
 
-### P0（MVP，第一版）— 方案 B 双栏
-1. ✅ Tauri 窗口：打开本地文件夹，文件树浏览 md；多 Tab 打开文档
+### P0（MVP，第一版）— 方案 B 双栏 — **已完成**
+1. ✅ Tauri 窗口：打开本地文件夹，文件树浏览 md；多 Tab 打开文档（Ctrl+Tab；外部变更提示）
 2. ✅ CodeMirror 6 源码区 + 右侧预览双栏
 3. ✅ **Night 暗色主题**（正文 / 源码 / Mermaid 暗色）
-4. ✅ 读写本地 md，保存、另存为；拖拽图片写入 `./assets/`，预览走 asset 协议
+4. ✅ 读写本地 md，保存、另存为；关窗/关 Tab 支持「保存 / 不保存 / 取消」；拖拽图片写入 `./assets/`，预览走 asset 协议
 5. ✅ GFM 标准支持，YAML front‑matter（脚注、任务列表已接）
 6. ✅ Mermaid、KaTeX、Shiki
-7. ◐ 源码模式切换已做（`Ctrl+/`）；搜索替换仅有 CM6 快捷键，无独立 UI
-8. ✅ 基础导出：HTML、PDF（系统打印到 PDF）
-9. ✅ 大纲 TOC（侧栏「文件 / 大纲」双 Tab）；Element‑Plus Message 已接
+7. ✅ 源码模式切换（`Ctrl+/`）；查找 / 替换面板（`Ctrl+F` / `Ctrl+H`，含匹配计数）
+8. ✅ 基础导出：导出 HTML、PDF（Typst：CJK / 公式 / Mermaid PNG / 脚注；失败可回退系统打印）
+9. ✅ 大纲 TOC 面板（侧栏「文件 / 大纲」双 Tab）；Element‑Plus Message 已接
+10. ✅ plugin-store：分栏比例、视图模式、侧栏、最近工作区、窗口几何
 
 ### P1（二期）— 一体化改造
 1. ⬜ **混合 WYSIWYG 一体化编辑（核心难点，二期专项）**

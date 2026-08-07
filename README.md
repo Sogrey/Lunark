@@ -4,16 +4,18 @@
 
 > **一体化 WYSIWYG 放二期** → [docs/PHASE2-WYSIWYG.md](docs/PHASE2-WYSIWYG.md)
 
-## 当前进度（2026-08-06）
+## 当前进度（2026-08-07 · 一期收口）
 
 | 层级 | 状态 |
 |---|---|
 | 双栏 + Night + GFM + 工作区 / Tab / TOC / 图片 | ✅ |
-| Mermaid · KaTeX · Shiki | ✅ |
-| store 持久化 / 搜索 UI | ⬜ |
+| Mermaid · KaTeX · Shiki · 滚动联动 | ✅ |
+| store · 查找替换 · 拖图/粘贴 · 外部文件变更 | ✅ |
+| 导出 HTML / PDF（Typst：CJK · 公式 · Mermaid） | ✅ |
+| 关窗/关 Tab 保存三选一 · Ctrl+Tab · 原生菜单 | ✅ |
 | 二期 WYSIWYG | ⬜ |
 
-一期约 **95%**。[PROGRESS](docs/PROGRESS.md) · [ROADMAP](docs/ROADMAP.md)
+一期 **MVP 完成，可进二期**。[PROGRESS](docs/PROGRESS.md) · [ROADMAP](docs/ROADMAP.md)
 
 ## 开发
 
@@ -34,7 +36,11 @@ pnpm tauri:build
 | 新建 | `Ctrl+N` |
 | 保存 | `Ctrl+S` |
 | 另存为 | `Ctrl+Shift+S` |
+| 关闭标签 | `Ctrl+W` |
+| 下一个 / 上一个标签 | `Ctrl+Tab` / `Ctrl+Shift+Tab` |
 | 仅源码 / 双栏 | `Ctrl+/` |
+| 查找 | `Ctrl+F` |
+| 查找并替换 | `Ctrl+H` |
 
 ## 文档
 

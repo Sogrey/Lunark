@@ -1,15 +1,17 @@
 # 二期：一体化 WYSIWYG 改造说明
 
-> **一期明确不做。** 本文仅作边界与预研备忘，避免 MVP 范围膨胀。  
-> 一期进度见 [PROGRESS.md](./PROGRESS.md)（约 95%：双栏 + 工作区 + TOC + 图片 + Mermaid/KaTeX/Shiki）。
+> **一期已完成并收口（2026-08-07）。** 本文为二期边界与预研备忘。  
+> 一期进度见 [PROGRESS.md](./PROGRESS.md)。
 
 ## 一期交付形态（已实现）
 
 - 左：CodeMirror 6 源码编辑；右：markdown-it 实时预览（Night）
-- 工作区文件树、多 Tab、大纲 TOC、本地图片 asset、导出 HTML/PDF
-- Mermaid / KaTeX / Shiki 扩展渲染
+- 工作区文件树、多 Tab（Ctrl+Tab）、大纲 TOC、本地图片 asset
+- 导出 HTML / PDF（Typst：CJK、公式、Mermaid PNG、脚注、嵌套列表）
+- Mermaid / KaTeX / Shiki；双栏滚动联动（可开关）
 - `Ctrl+/` 切换「仅源码 / 双栏」（一期不做块级混合编辑）
-- 一期剩余：配置持久化、搜索 UI
+- 偏好持久化；查找 / 替换（匹配计数）；关窗/关 Tab「保存 / 不保存 / 取消」
+- 拖图 / 粘贴插 `./assets/`；外部文件变更提示重载；原生菜单
 
 ## 二期目标
 
