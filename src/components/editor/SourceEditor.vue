@@ -17,21 +17,33 @@ import {
   highlightSelectionMatches,
 } from "@codemirror/search";
 import { bracketMatching } from "@codemirror/language";
-import { nightEditorTheme, nightSyntax } from "@/lib/editor/nightTheme";
+import { createSourceThemeCompartment } from "@/lib/editor/nightTheme";
 import { imageInputExtension } from "@/lib/editor/imageInput";
+import { createTypewriterCompartment } from "@/lib/editor/typewriterCm";
 import {
   getTabEditorState,
   setTabEditorState,
 } from "@/lib/editor/tabEditorStates";
 import { useEditorStore } from "@/stores/editor";
 import { useTabsStore } from "@/stores/tabs";
+import { useThemeStore } from "@/stores/theme";
+import {
+  clearFormatBridge,
+  createCmFormatBridge,
+  setFormatBridge,
+} from "@/lib/editor/formatBridge";
 
 const editor = useEditorStore();
 const tabs = useTabsStore();
+const theme = useThemeStore();
 const host = ref<HTMLElement | null>(null);
 
 let view: EditorView | null = null;
 let applyingExternal = false;
+
+const typewriter = createTypewriterCompartment();
+const sourceTheme = createSourceThemeCompartment(theme.isDark);
+const cmBridge = createCmFormatBridge(() => view);
 
 const extensions = [
   markdown(),
@@ -42,9 +54,9 @@ const extensions = [
   highlightSelectionMatches(),
   search({ top: true }),
   imageInputExtension(),
-  nightEditorTheme,
-  nightSyntax,
+  sourceTheme.initial,
   EditorView.lineWrapping,
+  typewriter.initial(editor.typewriterMode),
   keymap.of([
     ...defaultKeymap,
     ...historyKeymap,
@@ -74,6 +86,7 @@ function mountView(tabId: string, content: string) {
   view = new EditorView({ state, parent: host.value });
   editor.setCmView(view);
   setTabEditorState(tabId, view.state);
+  sourceTheme.setDark(view, theme.isDark);
 }
 
 function switchTab(newId: string, oldId: string | undefined) {
@@ -93,11 +106,27 @@ function switchTab(newId: string, oldId: string | undefined) {
   applyingExternal = false;
   setTabEditorState(newId, view.state);
   editor.setCmView(view);
+  sourceTheme.setDark(view, theme.isDark);
 }
 
 onMounted(() => {
   mountView(tabs.activeId, editor.content);
+  setFormatBridge(cmBridge);
 });
+
+watch(
+  () => editor.typewriterMode,
+  (enabled) => {
+    if (view) typewriter.setEnabled(view, enabled);
+  },
+);
+
+watch(
+  () => theme.isDark,
+  (dark) => {
+    if (view) sourceTheme.setDark(view, dark);
+  },
+);
 
 watch(
   () => tabs.activeId,
@@ -122,6 +151,7 @@ watch(
 );
 
 onBeforeUnmount(() => {
+  clearFormatBridge(cmBridge);
   if (view) {
     setTabEditorState(tabs.activeId, view.state);
     view.destroy();

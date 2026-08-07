@@ -4,6 +4,7 @@ import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useEditorStore } from "@/stores/editor";
 import { useTabsStore, type DocTab } from "@/stores/tabs";
 import { useWorkspaceStore } from "@/stores/workspace";
+import { useSessionStore } from "@/stores/session";
 import {
   ensureMdExtension,
   fileBasename,
@@ -28,11 +29,18 @@ import {
   exportMarkdownToPdfFile,
   prepareTypstMarkdown,
 } from "@/lib/export/typstPdf";
-import { persistWorkspacePath } from "@/lib/prefs/persistence";
+import {
+  persistRecentNow,
+  persistWorkspacePath,
+} from "@/lib/prefs/persistence";
 import { discardTabEditorState } from "@/lib/editor/tabEditorStates";
 import { askSaveDiscardCancel } from "@/lib/dialog/saveChoice";
 import { rememberDiskMtime } from "@/composables/useExternalFileWatch";
 
+async function noteRecent(path: string) {
+  useSessionStore().touchRecent(path, fileBasename(path));
+  await persistRecentNow();
+}
 function pdfNameFromMd(name: string): string {
   return name.replace(/\.(md|markdown|mdown|mkd)$/i, "") + ".pdf";
 }
@@ -65,6 +73,7 @@ export function useDocumentActions() {
       const text = await readMarkdownFile(path);
       tabs.openOrFocus(path, fileBasename(path), text);
       await rememberDiskMtime(path);
+      await noteRecent(path);
       ElMessage.success(`已打开 ${fileBasename(path)}`);
     } catch (e) {
       ElMessage.error(e instanceof Error ? e.message : "打开失败");
@@ -119,14 +128,22 @@ export function useDocumentActions() {
       const existing = tabs.tabs.find((t) => t.path === path);
       if (existing) {
         tabs.activate(existing.id);
+        await noteRecent(path);
         return;
       }
       const text = await readMarkdownFile(path);
       tabs.openOrFocus(path, fileBasename(path), text);
       await rememberDiskMtime(path);
+      await noteRecent(path);
     } catch (e) {
       ElMessage.error(e instanceof Error ? e.message : "打开文件失败");
     }
+  }
+
+  async function clearRecentFiles() {
+    useSessionStore().clearRecent();
+    await persistRecentNow();
+    ElMessage.success("已清除最近打开");
   }
 
   async function saveFile(): Promise<boolean> {
@@ -155,6 +172,7 @@ export function useDocumentActions() {
       tabs.updateActiveMeta(path, fileBasename(path));
       tabs.markActiveSaved();
       await rememberDiskMtime(path);
+      await noteRecent(path);
       ElMessage.success(`已保存为 ${fileBasename(path)}`);
       return true;
     } catch (e) {
@@ -328,6 +346,7 @@ export function useDocumentActions() {
     openFolder,
     refreshFolder,
     openPathInTab,
+    clearRecentFiles,
     saveFile,
     saveFileAs,
     exportHtml,

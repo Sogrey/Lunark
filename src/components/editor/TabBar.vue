@@ -31,7 +31,7 @@ function onClose(e: MouseEvent, id: string) {
       @keydown.enter.prevent="onSelect(tab.id)"
       @keydown.space.prevent="onSelect(tab.id)"
     >
-      <span class="name">{{ tab.dirty ? `${tab.name} •` : tab.name }}</span>
+      <span class="name">{{ tab.dirty ? `${tab.name} *` : tab.name }}</span>
       <button
         type="button"
         class="close"
