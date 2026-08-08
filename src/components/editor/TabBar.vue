@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import { useTabsStore } from "@/stores/tabs";
 import { useDocumentActions } from "@/composables/useDocumentActions";
 
+const { t } = useI18n();
 const tabs = useTabsStore();
-const { closeTab } = useDocumentActions();
+const { closeTab, newFile } = useDocumentActions();
 
 function onSelect(id: string) {
   tabs.activate(id);
@@ -13,10 +15,23 @@ function onClose(e: MouseEvent, id: string) {
   e.stopPropagation();
   void closeTab(id);
 }
+
+/** 双击标签栏空白 = 新建（对标常见编辑器） */
+function onBarDblClick(e: MouseEvent) {
+  const el = e.target as HTMLElement | null;
+  if (!el) return;
+  if (el.closest(".tab") || el.closest(".tab-new")) return;
+  newFile();
+}
 </script>
 
 <template>
-  <div class="tab-bar" role="tablist" aria-label="打开的文档">
+  <div
+    class="tab-bar"
+    role="tablist"
+    :aria-label="t('editor.openDocsAria')"
+    @dblclick="onBarDblClick"
+  >
     <div
       v-for="tab in tabs.tabs"
       :key="tab.id"
@@ -35,13 +50,22 @@ function onClose(e: MouseEvent, id: string) {
       <button
         type="button"
         class="close"
-        :aria-label="`关闭 ${tab.name}`"
-        title="关闭"
+        :aria-label="t('editor.closeTabNamed', { name: tab.name })"
+        :title="t('editor.closeTab')"
         @click="onClose($event, tab.id)"
       >
         ×
       </button>
     </div>
+    <button
+      type="button"
+      class="tab-new"
+      :title="t('shell.newTab')"
+      :aria-label="t('menu.new')"
+      @click="newFile()"
+    >
+      +
+    </button>
   </div>
 </template>
 
@@ -87,32 +111,50 @@ function onClose(e: MouseEvent, id: string) {
   font-style: italic;
 }
 
-.name {
+.tab .name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.close {
+.tab .close {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border: 0;
-  border-radius: 3px;
-  padding: 0;
-  font-size: 14px;
-  line-height: 1;
-  opacity: 0.55;
+  border-radius: 4px;
   background: transparent;
   color: inherit;
+  font-size: 14px;
+  line-height: 1;
   cursor: pointer;
+  opacity: 0.55;
   flex-shrink: 0;
 }
 
-.close:hover {
+.tab .close:hover {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(112, 113, 125, 0.35);
+}
+
+.tab-new {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: var(--control-text-color);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tab-new:hover {
+  color: var(--text-color);
+  background: rgba(112, 113, 125, 0.25);
 }
 </style>

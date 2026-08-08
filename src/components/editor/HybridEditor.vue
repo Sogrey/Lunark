@@ -1,6 +1,12 @@
 <script setup lang="ts">
+/**
+ * 每个 Tab 一个 HybridEditor 实例（父级 :key="activeId"）。
+ * 切 Tab = 卸载旧实例（flush 回该 Tab）+ 挂载新实例，避免单例 Crepe 串内容。
+ */
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { Crepe } from "@milkdown/crepe";
+import { editorViewCtx } from "@milkdown/kit/core";
 import { replaceAll } from "@milkdown/kit/utils";
 import { useEditorStore } from "@/stores/editor";
 import { useTabsStore } from "@/stores/tabs";
@@ -12,73 +18,172 @@ import {
 } from "@/lib/editor/imageInput";
 import { createHybridFormatBridge } from "@/lib/editor/hybridFormat";
 import { clearFormatBridge, setFormatBridge } from "@/lib/editor/formatBridge";
+import { lunarkHybridSourceMarks } from "@/lib/editor/hybrid/sourceMarksPlugin";
+import { lunarkHybridMarkdownInput } from "@/lib/editor/hybridMarkdownInput";
 
 import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/common/reset.css";
 import "@milkdown/crepe/theme/frame-dark.css";
 
+const { t } = useI18n();
 const editor = useEditorStore();
 const tabs = useTabsStore();
+
+/** 本实例终身只服务这一个 Tab（setup 时冻结） */
+const ownedTabId = tabs.activeId;
+const initialMarkdown =
+  tabs.tabs.find((t) => t.id === ownedTabId)?.content ?? "";
+
 const root = ref<HTMLElement | null>(null);
 const dropActive = ref(false);
 
 let crepe: Crepe | null = null;
 let applyingExternal = false;
 let ready = false;
+let alive = true;
 let unbindDrop: (() => void) | null = null;
 let typewriterTimer: ReturnType<typeof setTimeout> | null = null;
+let releaseApplyTimer: ReturnType<typeof setTimeout> | null = null;
 const hybridBridge = createHybridFormatBridge(() => crepe);
 
-async function mountCrepe() {
-  if (!root.value || crepe) return;
+function beginExternalApply() {
+  applyingExternal = true;
+  if (releaseApplyTimer) {
+    clearTimeout(releaseApplyTimer);
+    releaseApplyTimer = null;
+  }
+}
 
-  const config = buildCrepeConfig(editor.content || "");
+function endExternalApplySoon(ms = 280) {
+  if (releaseApplyTimer) clearTimeout(releaseApplyTimer);
+  releaseApplyTimer = setTimeout(() => {
+    releaseApplyTimer = null;
+    applyingExternal = false;
+  }, ms);
+}
+
+function normalizeDocText(md: string): string {
+  return md.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n");
+}
+
+function isEffectivelyEmpty(md: string): boolean {
+  return normalizeDocText(md).trim().length === 0;
+}
+
+function docsMatch(got: string, want: string): boolean {
+  if (got === want) return true;
+  if (isEffectivelyEmpty(got) && isEffectivelyEmpty(want)) return true;
+  return normalizeDocText(got) === normalizeDocText(want);
+}
+
+function writeToOwnedTab(markdown: string) {
+  const tab = tabs.tabs.find((t) => t.id === ownedTabId);
+  if (!tab) return;
+  if (tab.content === "" && isEffectivelyEmpty(markdown)) return;
+  if (tab.content === markdown) return;
+  tab.content = markdown;
+  tab.dirty = true;
+}
+
+function flushOwnedTab() {
+  if (!crepe || !ready) return;
+  try {
+    const md = crepe.getMarkdown();
+    const tab = tabs.tabs.find((t) => t.id === ownedTabId);
+    if (!tab) return;
+    if (tab.content === "" && isEffectivelyEmpty(md)) return;
+    if (tab.content !== md) tab.content = md;
+  } catch {
+    /* ignore */
+  }
+}
+
+function loadMarkdown(md: string) {
+  if (!crepe) return;
+  const payload = md.length === 0 ? "\n" : md;
+  crepe.editor.action(replaceAll(payload, true));
+}
+
+async function mountCrepe() {
+  if (!root.value || crepe || !alive) return;
+
+  const config = buildCrepeConfig(
+    initialMarkdown.length === 0 ? "\n" : initialMarkdown,
+  );
   config.root = root.value;
 
   const instance = new Crepe(config);
+  for (const plugin of lunarkHybridMarkdownInput()) {
+    instance.editor.use(plugin);
+  }
+  instance.editor.use(lunarkHybridSourceMarks());
 
   instance.on((listener) => {
     listener.markdownUpdated((_ctx, markdown, prev) => {
-      if (!ready || applyingExternal) return;
+      if (!alive || !ready || applyingExternal) return;
       if (markdown === prev) return;
-      editor.setContent(markdown);
+      // 绝不能写到别的 Tab
+      if (tabs.activeId !== ownedTabId) return;
+      writeToOwnedTab(markdown);
     });
   });
 
   await instance.create();
+  if (!alive) {
+    try {
+      await instance.destroy();
+    } catch {
+      /* ignore */
+    }
+    return;
+  }
   crepe = instance;
   ready = true;
   setFormatBridge(hybridBridge);
+
+  // 新建空白标签：正文自动聚焦，方便直接输入
+  if (isEffectivelyEmpty(initialMarkdown)) {
+    await nextTick();
+    requestAnimationFrame(() => focusOwnedEditor());
+  }
+}
+
+function focusOwnedEditor() {
+  if (!alive || !crepe || !ready) return;
+  try {
+    crepe.editor.action((ctx) => {
+      ctx.get(editorViewCtx).focus();
+    });
+  } catch {
+    root.value?.querySelector<HTMLElement>(".ProseMirror")?.focus();
+  }
 }
 
 async function destroyCrepe() {
   ready = false;
   clearFormatBridge(hybridBridge);
   if (!crepe) return;
+  const inst = crepe;
+  crepe = null;
   try {
-    await crepe.destroy();
+    await inst.destroy();
   } catch {
     /* ignore */
   }
-  crepe = null;
   if (root.value) root.value.innerHTML = "";
 }
 
 function applyMarkdown(md: string) {
-  if (!crepe || !ready) return;
-  const current = crepe.getMarkdown();
-  if (current === md) return;
-  applyingExternal = true;
+  if (!crepe || !ready || !alive) return;
+  if (docsMatch(crepe.getMarkdown(), md)) return;
+  beginExternalApply();
   try {
-    crepe.editor.action(replaceAll(md));
+    loadMarkdown(md);
   } finally {
-    queueMicrotask(() => {
-      applyingExternal = false;
-    });
+    endExternalApplySoon();
   }
 }
 
-/** 打字机：把光标/选区滚到视口中部 */
 function keepCaretCentered() {
   if (!editor.typewriterMode || !root.value) return;
   const sel = window.getSelection();
@@ -123,28 +228,25 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  alive = false;
+  // 先落盘本 Tab，再销毁（补上 markdownUpdated 防抖未到的最后一笔）
+  flushOwnedTab();
   if (typewriterTimer) clearTimeout(typewriterTimer);
+  if (releaseApplyTimer) clearTimeout(releaseApplyTimer);
   document.removeEventListener("selectionchange", scheduleTypewriter);
   unbindDrop?.();
   unbindDrop = null;
   void destroyCrepe();
 });
 
-watch(
-  () => tabs.activeId,
-  async () => {
-    await nextTick();
-    applyMarkdown(editor.content);
-  },
-);
-
-/** 外部重载等同 Tab 内容变更（非本编辑器输入） */
+/** 仅本 Tab 被外部重载时同步（文件监视等）；切 Tab 靠父级 key 重建 */
 watch(
   () => editor.content,
   (value) => {
-    if (!ready || applyingExternal) return;
+    if (!alive || !ready || applyingExternal) return;
+    if (tabs.activeId !== ownedTabId) return;
     if (!crepe) return;
-    if (crepe.getMarkdown() === value) return;
+    if (docsMatch(crepe.getMarkdown(), value)) return;
     applyMarkdown(value);
   },
 );
@@ -158,7 +260,9 @@ watch(
 
 watch(
   () => editor.content,
-  () => scheduleTypewriter(),
+  () => {
+    if (tabs.activeId === ownedTabId) scheduleTypewriter();
+  },
 );
 
 function onDragOver(event: DragEvent) {
@@ -181,6 +285,7 @@ function onDrop(event: DragEvent) {
   <div
     class="hybrid-editor"
     :class="{ 'drop-active': dropActive }"
+    :data-hint="t('editor.dropImageHint')"
     @dragover="onDragOver"
     @dragleave="onDragLeave"
     @drop="onDrop"
@@ -200,7 +305,7 @@ function onDrop(event: DragEvent) {
 }
 
 .hybrid-editor.drop-active::after {
-  content: "松开以在光标处插入图片（./assets/）";
+  content: attr(data-hint);
   position: absolute;
   inset: 0;
   display: flex;
@@ -219,7 +324,6 @@ function onDrop(event: DragEvent) {
   box-sizing: border-box;
 }
 
-/* Night：压过 Crepe frame-dark 默认，贴近一期变量 */
 .hybrid-editor :deep(.milkdown) {
   --crepe-color-background: var(--bg-color);
   --crepe-color-on-background: var(--text-color);
@@ -241,80 +345,10 @@ function onDrop(event: DragEvent) {
   line-height: 1.7;
 }
 
-/* 标题层级：显式覆盖，避免 Crepe 主题未生效时 h1–h6 同字号 */
-.hybrid-editor :deep(.ProseMirror h1),
-.hybrid-editor :deep(.ProseMirror h2),
-.hybrid-editor :deep(.ProseMirror h3),
-.hybrid-editor :deep(.ProseMirror h4),
-.hybrid-editor :deep(.ProseMirror h5),
-.hybrid-editor :deep(.ProseMirror h6) {
-  font-family: var(--font-heading);
-  font-weight: 600;
-  color: var(--heading-color);
-  margin: 0 0 0.75em;
-  padding: 0.15em 0;
-  line-height: 1.3;
-  word-wrap: break-word;
-}
-
-.hybrid-editor :deep(.ProseMirror h1) {
-  font-size: 2.25em;
-  letter-spacing: -0.02em;
-  margin-top: 1.2em;
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 0.35em;
-}
-
-.hybrid-editor :deep(.ProseMirror h2) {
-  font-size: 1.65em;
-  margin-top: 1.1em;
-}
-
-.hybrid-editor :deep(.ProseMirror h3) {
-  font-size: 1.35em;
-  margin-top: 1em;
-}
-
-.hybrid-editor :deep(.ProseMirror h4) {
-  font-size: 1.15em;
-  margin-top: 0.9em;
-  color: var(--heading-strong-color);
-}
-
-.hybrid-editor :deep(.ProseMirror h5) {
-  font-size: 1.05em;
-  margin-top: 0.85em;
-}
-
-.hybrid-editor :deep(.ProseMirror h6) {
-  font-size: 0.95em;
-  margin-top: 0.8em;
-  color: var(--heading-strong-color);
-  font-weight: 700;
-}
-
 .hybrid-editor :deep(.ProseMirror p) {
   font-size: 1em;
   margin: 0;
   padding: 0.25em 0;
-}
-
-.hybrid-editor :deep(.ProseMirror > :first-child) {
-  margin-top: 0;
-}
-
-.hybrid-editor :deep(.lunark-mermaid-preview) {
-  margin: 0.5rem 0;
-  padding: 0.75rem;
-  background: var(--side-bar-bg-color);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  overflow-x: auto;
-}
-
-.hybrid-editor :deep(.lunark-mermaid-preview svg) {
-  max-width: 100%;
-  height: auto;
 }
 
 .hybrid-editor :deep(.milkdown-code-block) {

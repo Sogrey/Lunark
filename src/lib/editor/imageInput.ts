@@ -12,6 +12,7 @@ import {
   insertTextAtCursor,
   joinImageSnippets,
 } from "@/lib/editor/insertText";
+import { t } from "@/lib/i18n";
 
 function filesFromList(list: FileList | File[] | null | undefined): File[] {
   if (!list) return [];
@@ -42,11 +43,11 @@ async function finishInsert(
   ElMessage.success(
     snippets.length === 1
       ? source === "paste"
-        ? "已粘贴图片到光标处"
-        : "已在光标处插入图片（./assets/）"
+        ? t("msg.imagePasted")
+        : t("msg.imageInserted")
       : source === "paste"
-        ? `已粘贴 ${snippets.length} 张图片`
-        : `已在光标处插入 ${snippets.length} 张图片`,
+        ? t("msg.imagesPasted", { n: snippets.length })
+        : t("msg.imagesInserted", { n: snippets.length }),
   );
   return true;
 }
@@ -61,8 +62,8 @@ export async function insertDroppedOrPastedImages(
   if (!editor.filePath) {
     ElMessage.warning(
       source === "paste"
-        ? "请先保存文档，再粘贴图片（将写入 ./assets/）"
-        : "请先保存文档，再拖入图片（将写入 ./assets/）",
+        ? t("msg.saveBeforePasteImage")
+        : t("msg.saveBeforeDropImage"),
     );
     return true;
   }
@@ -75,8 +76,8 @@ export async function insertDroppedOrPastedImages(
       e instanceof Error
         ? e.message
         : source === "paste"
-          ? "粘贴图片失败"
-          : "插入图片失败",
+          ? t("msg.imagePasteFail")
+          : t("msg.imageInsertFail"),
     );
     return true;
   }
@@ -90,19 +91,19 @@ export async function insertImagesFromOsPaths(
 
   const editor = useEditorStore();
   if (!editor.filePath) {
-    ElMessage.warning("请先保存文档，再拖入图片（将写入 ./assets/）");
+    ElMessage.warning(t("msg.saveBeforeDropImage"));
     return true;
   }
 
   try {
     const snippets = await saveImagesFromPaths(paths, editor.filePath);
     if (snippets.length === 0) {
-      ElMessage.info("未识别到图片文件");
+      ElMessage.info(t("msg.noImageRecognized"));
       return true;
     }
     return await finishInsert(snippets, "drop");
   } catch (e) {
-    ElMessage.error(e instanceof Error ? e.message : "插入图片失败");
+    ElMessage.error(e instanceof Error ? e.message : t("msg.imageInsertFail"));
     return true;
   }
 }

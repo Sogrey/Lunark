@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   SearchQuery,
   setSearchQuery,
@@ -13,6 +14,7 @@ import type { EditorView } from "@codemirror/view";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { useEditorStore } from "@/stores/editor";
 
+const { t } = useI18n();
 const editor = useEditorStore();
 const findInput = ref<HTMLInputElement | null>(null);
 const query = ref("");
@@ -24,7 +26,7 @@ const matchTotal = ref(0);
 
 const matchLabel = computed(() => {
   if (!query.value) return "";
-  if (matchTotal.value === 0) return "未找到";
+  if (matchTotal.value === 0) return t("editor.notFound");
   return `${matchIndex.value}/${matchTotal.value}`;
 });
 
@@ -102,14 +104,15 @@ async function runReplaceAll() {
   if (!view || !query.value) return;
   if (matchTotal.value === 0) return;
 
+  const confirmMsg = t("editor.replaceAllConfirm", { n: matchTotal.value });
   let ok = true;
   try {
-    ok = await ask(`将替换全部 ${matchTotal.value} 处匹配，确定？`, {
+    ok = await ask(confirmMsg, {
       title: "Lunark",
       kind: "warning",
     });
   } catch {
-    ok = window.confirm(`将替换全部 ${matchTotal.value} 处匹配，确定？`);
+    ok = window.confirm(confirmMsg);
   }
   if (!ok) return;
 
@@ -170,8 +173,8 @@ onMounted(() => {
         v-model="query"
         class="field"
         type="text"
-        placeholder="查找…"
-        aria-label="查找"
+        :placeholder="t('editor.findPlaceholder')"
+        :aria-label="t('editor.findAria')"
         @keydown="onFindKeydown"
       />
       <span
@@ -181,19 +184,29 @@ onMounted(() => {
       >
         {{ matchLabel }}
       </span>
-      <button type="button" class="btn" title="上一个 (Shift+Enter)" @click="runFindPrev">
+      <button
+        type="button"
+        class="btn"
+        :title="t('editor.findPrev')"
+        @click="runFindPrev"
+      >
         ↑
       </button>
-      <button type="button" class="btn" title="下一个 (Enter)" @click="runFindNext">
+      <button
+        type="button"
+        class="btn"
+        :title="t('editor.findNext')"
+        @click="runFindNext"
+      >
         ↓
       </button>
       <label class="check">
         <input v-model="caseSensitive" type="checkbox" />
-        区分大小写
+        {{ t("editor.matchCase") }}
       </label>
       <label class="check">
         <input v-model="wholeWord" type="checkbox" />
-        全词
+        {{ t("editor.wholeWord") }}
       </label>
       <button
         type="button"
@@ -201,7 +214,7 @@ onMounted(() => {
         :class="{ active: editor.searchReplaceVisible }"
         @click="editor.toggleSearchReplace()"
       >
-        替换
+        {{ t("editor.toggleReplace") }}
       </button>
       <button type="button" class="btn ghost" title="Esc" @click="editor.closeSearch()">
         ✕
@@ -212,12 +225,16 @@ onMounted(() => {
         v-model="replace"
         class="field"
         type="text"
-        placeholder="替换为…"
-        aria-label="替换"
+        :placeholder="t('editor.replacePlaceholder')"
+        :aria-label="t('editor.replaceAria')"
         @keydown="onReplaceKeydown"
       />
-      <button type="button" class="btn" @click="runReplace">替换</button>
-      <button type="button" class="btn" @click="runReplaceAll">全部替换</button>
+      <button type="button" class="btn" @click="runReplace">
+        {{ t("editor.replace") }}
+      </button>
+      <button type="button" class="btn" @click="runReplaceAll">
+        {{ t("editor.replaceAll") }}
+      </button>
     </div>
   </div>
 </template>

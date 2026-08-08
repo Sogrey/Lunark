@@ -1,5 +1,7 @@
 import type { Crepe } from "@milkdown/crepe";
 import { editorViewCtx } from "@milkdown/kit/core";
+import { undo as pmUndo, redo as pmRedo } from "@milkdown/kit/prose/history";
+import { AllSelection } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import type { FormatBridge } from "@/lib/editor/formatBridge";
 import {
@@ -7,6 +9,7 @@ import {
   runCrepeMarkAction,
   type CrepeBlockAction,
 } from "@/lib/editor/crepeCommands";
+import { t } from "@/lib/i18n";
 
 function withView(crepe: Crepe, fn: (view: EditorView) => void) {
   crepe.editor.action((ctx) => {
@@ -20,7 +23,7 @@ export function createHybridFormatBridge(
 ): FormatBridge {
   function crepe(): Crepe {
     const c = getCrepe();
-    if (!c) throw new Error("编辑器未就绪");
+    if (!c) throw new Error(t("msg.editorNotReady"));
     return c;
   }
 
@@ -153,6 +156,29 @@ export function createHybridFormatBridge(
       const c = getCrepe();
       if (!c) return;
       withView(c, (view) => view.focus());
+    },
+
+    selectAll() {
+      withView(crepe(), (view) => {
+        const { state, dispatch } = view;
+        // AllSelection 只覆盖文档，不会选中标签栏等壳层 DOM
+        dispatch(state.tr.setSelection(new AllSelection(state.doc)));
+        view.focus();
+      });
+    },
+
+    undo() {
+      withView(crepe(), (view) => {
+        pmUndo(view.state, view.dispatch);
+        view.focus();
+      });
+    },
+
+    redo() {
+      withView(crepe(), (view) => {
+        pmRedo(view.state, view.dispatch);
+        view.focus();
+      });
     },
   };
 }

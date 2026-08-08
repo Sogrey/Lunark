@@ -1,8 +1,10 @@
+import { undo as cmUndo, redo as cmRedo } from "@codemirror/commands";
 import type { EditorView as CmView } from "@codemirror/view";
 import type {
   CrepeBlockAction,
   CrepeMarkAction,
 } from "@/lib/editor/crepeCommands";
+import { t } from "@/lib/i18n";
 
 /** 编辑器格式化桥：源码 CM 与混合 Crepe 共用 */
 export interface FormatBridge {
@@ -18,6 +20,10 @@ export interface FormatBridge {
   getSelectedText: () => string;
   replaceSelection: (text: string) => void;
   focus: () => void;
+  /** 仅全选编辑器文档，不选中壳层 UI */
+  selectAll: () => void;
+  undo: () => void;
+  redo: () => void;
 }
 
 let bridge: FormatBridge | null = null;
@@ -71,14 +77,16 @@ function cmBlockAction(
       helpers.toggleLinePrefix("- [ ] ");
       break;
     case "image":
-      helpers.insertSnippet("![描述](./assets/image.png)");
+      helpers.insertSnippet(
+        `![${t("editor.imageAlt")}](./assets/image.png)`,
+      );
       break;
     case "codeBlock":
       helpers.insertSnippet("```\n\n```");
       break;
     case "table":
       helpers.insertSnippet(
-        "| 列1 | 列2 | 列3 |\n| --- | --- | --- |\n|  |  |  |\n|  |  |  |",
+        `| ${t("editor.tableCol1")} | ${t("editor.tableCol2")} | ${t("editor.tableCol3")} |\n| --- | --- | --- |\n|  |  |  |\n|  |  |  |`,
       );
       break;
     case "math":
@@ -94,12 +102,12 @@ export function createCmFormatBridge(
 ): FormatBridge {
   function view(): CmView {
     const v = getView();
-    if (!v) throw new Error("编辑器未就绪");
+    if (!v) throw new Error(t("msg.editorNotReady"));
     return v;
   }
 
   const api: FormatBridge = {
-    wrapInline(before, after = before, placeholder = "文本") {
+    wrapInline(before, after = before, placeholder = t("editor.wrapPlaceholder")) {
       const v = view();
       const { from, to } = v.state.selection.main;
       const selected = v.state.doc.sliceString(from, to);
@@ -203,7 +211,7 @@ export function createCmFormatBridge(
           api.wrapInline("`", "`");
           break;
         case "link":
-          api.wrapInline("[", "](https://)", "链接文字");
+          api.wrapInline("[", "](https://)", t("editor.linkText"));
           break;
         default:
           break;
@@ -256,6 +264,30 @@ export function createCmFormatBridge(
 
     focus() {
       getView()?.focus();
+    },
+
+    selectAll() {
+      const v = getView();
+      if (!v) return;
+      v.dispatch({
+        selection: { anchor: 0, head: v.state.doc.length },
+        scrollIntoView: true,
+      });
+      v.focus();
+    },
+
+    undo() {
+      const v = getView();
+      if (!v) return;
+      cmUndo(v);
+      v.focus();
+    },
+
+    redo() {
+      const v = getView();
+      if (!v) return;
+      cmRedo(v);
+      v.focus();
     },
   };
 

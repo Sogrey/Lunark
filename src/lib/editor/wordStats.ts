@@ -36,11 +36,3 @@ export function computeDocStats(text: string): DocStats {
     lines,
   };
 }
-
-export function formatDocStats(stats: DocStats, selectionChars?: number): string {
-  const base = `${stats.words} 词 · ${stats.chars} 字符 · ${stats.lines} 行`;
-  if (selectionChars != null && selectionChars > 0) {
-    return `${base} · 选中 ${selectionChars}`;
-  }
-  return base;
-}

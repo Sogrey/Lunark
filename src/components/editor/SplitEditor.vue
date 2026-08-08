@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import SourceEditor from "./SourceEditor.vue";
 import PreviewPane from "./PreviewPane.vue";
 import { useEditorStore } from "@/stores/editor";
@@ -10,6 +11,7 @@ import {
 } from "@/lib/editor/imageInput";
 import { useScrollSync } from "@/composables/useScrollSync";
 
+const { t } = useI18n();
 const editor = useEditorStore();
 useScrollSync();
 const root = ref<HTMLElement | null>(null);
@@ -88,6 +90,7 @@ onBeforeUnmount(() => {
     ref="root"
     class="split-editor"
     :class="{ 'drop-active': dropActive }"
+    :data-hint="t('editor.dropImageHint')"
     @pointermove="onPointerMove"
     @dragover="onDragOver"
     @dragleave="onDragLeave"
@@ -123,7 +126,7 @@ onBeforeUnmount(() => {
 }
 
 .split-editor.drop-active::after {
-  content: "松开以在光标处插入图片（./assets/）";
+  content: attr(data-hint);
   position: absolute;
   inset: 0;
   display: flex;

@@ -5,13 +5,9 @@ import { dirname, isAbsolute, join } from "@tauri-apps/api/path";
 import { Crepe, type CrepeConfig } from "@milkdown/crepe";
 import { ElMessage } from "element-plus";
 import { useEditorStore } from "@/stores/editor";
-import {
-  encodeAssetPath,
-  isImageFile,
-  saveDroppedImages,
-} from "@/lib/fs/imageDrop";
+import { isImageFile, saveDroppedImages } from "@/lib/fs/imageDrop";
 import { renderMermaidSvg } from "@/lib/markdown/mermaid";
-import { isThemeId, themeMeta } from "@/lib/theme/catalog";
+import { t } from "@/lib/i18n";
 
 function looksAbsoluteLocal(src: string): boolean {
   return (
@@ -44,17 +40,17 @@ async function resolveLocalImageUrl(url: string): Promise<string> {
 /** 写入 ./assets/，返回 Markdown 可用的相对路径 */
 async function uploadImageFile(file: File): Promise<string> {
   if (!isImageFile(file)) {
-    throw new Error("仅支持图片文件");
+    throw new Error(t("msg.imageOnly"));
   }
   const editor = useEditorStore();
   if (!editor.filePath) {
-    ElMessage.warning("请先保存文档，再插入图片（将写入 ./assets/）");
-    throw new Error("文档未保存");
+    ElMessage.warning(t("msg.saveDocBeforeImage"));
+    throw new Error(t("msg.docUnsaved"));
   }
   const snippets = await saveDroppedImages([file], editor.filePath);
   const first = snippets[0] ?? "";
   const m = first.match(/\(([^)]+)\)/);
-  if (!m?.[1]) throw new Error("图片保存失败");
+  if (!m?.[1]) throw new Error(t("msg.imageSaveFail"));
   return m[1];
 }
 
@@ -65,13 +61,14 @@ function renderMermaidPreview(
   if (language.toLowerCase() !== "mermaid") return null;
   const wrap = document.createElement("div");
   wrap.className = "lunark-mermaid-preview";
-  wrap.textContent = "Mermaid 渲染中…";
-  const attr = document.documentElement.getAttribute("data-theme");
+  wrap.textContent = t("editor.mermaidRendering");
   const mode =
-    isThemeId(attr) && themeMeta(attr).dark ? "dark" : "light";
+    document.documentElement.getAttribute("data-theme-mode") === "light"
+      ? "light"
+      : "dark";
   void renderMermaidSvg(content, mode).then((svg) => {
     if (!svg) {
-      wrap.textContent = "空图表";
+      wrap.textContent = t("editor.emptyDiagram");
       return;
     }
     wrap.innerHTML = svg;
@@ -96,45 +93,46 @@ export function buildCrepeConfig(defaultValue: string): CrepeConfig {
     },
     featureConfigs: {
       [Crepe.Feature.Placeholder]: {
-        text: "开始写作…",
+        text: t("editor.placeholder"),
         mode: "block",
       },
-      // 行首「+」菜单中文（与右键插入同源命令）
+      // 行首「+」菜单（与右键插入同源命令）
       [Crepe.Feature.BlockEdit]: {
         textGroup: {
-          label: "文本",
-          text: { label: "正文" },
-          h1: { label: "一级标题" },
-          h2: { label: "二级标题" },
-          h3: { label: "三级标题" },
-          h4: { label: "四级标题" },
-          h5: { label: "五级标题" },
-          h6: { label: "六级标题" },
-          quote: { label: "引用" },
-          divider: { label: "分割线" },
+          label: t("editor.textGroup"),
+          text: { label: t("editor.plainText") },
+          h1: { label: t("editor.h1") },
+          h2: { label: t("editor.h2") },
+          h3: { label: t("editor.h3") },
+          h4: { label: t("editor.h4") },
+          h5: { label: t("editor.h5") },
+          h6: { label: t("editor.h6") },
+          quote: { label: t("editor.quote") },
+          divider: { label: t("editor.hr") },
         },
         listGroup: {
-          label: "列表",
-          bulletList: { label: "无序列表" },
-          orderedList: { label: "有序列表" },
-          taskList: { label: "任务列表" },
+          label: t("editor.listGroup"),
+          bulletList: { label: t("editor.bulletList") },
+          orderedList: { label: t("editor.orderedList") },
+          taskList: { label: t("editor.taskList") },
         },
         advancedGroup: {
-          label: "高级",
-          image: { label: "图像" },
-          codeBlock: { label: "代码块" },
-          table: { label: "表格" },
-          math: { label: "公式" },
+          label: t("editor.advancedGroup"),
+          image: { label: t("editor.image") },
+          codeBlock: { label: t("editor.codeBlock") },
+          table: { label: t("editor.table") },
+          math: { label: t("editor.math") },
         },
       },
       [Crepe.Feature.CodeMirror]: {
         theme: oneDark,
         languages,
-        searchPlaceholder: "搜索语言",
-        copyText: "复制",
-        noResultText: "无匹配语言",
-        previewToggleText: (previewOnly) => (previewOnly ? "编辑" : "预览"),
-        previewLabel: "预览",
+        searchPlaceholder: t("editor.searchLang"),
+        copyText: t("help.copy"),
+        noResultText: t("editor.noLangMatch"),
+        previewToggleText: (previewOnly) =>
+          previewOnly ? t("editor.edit") : t("editor.preview"),
+        previewLabel: t("editor.preview"),
         renderPreview: renderMermaidPreview,
       },
       [Crepe.Feature.ImageBlock]: {
@@ -142,20 +140,18 @@ export function buildCrepeConfig(defaultValue: string): CrepeConfig {
         inlineOnUpload: uploadImageFile,
         blockOnUpload: uploadImageFile,
         proxyDomURL: resolveLocalImageUrl,
-        inlineUploadButton: "上传",
-        inlineUploadPlaceholderText: "或粘贴图片链接",
-        blockUploadButton: "上传图片",
-        blockUploadPlaceholderText: "点击上传或粘贴链接",
-        blockCaptionPlaceholderText: "图片说明",
+        inlineUploadButton: t("editor.upload"),
+        inlineUploadPlaceholderText: t("editor.orPasteImageUrl"),
+        blockUploadButton: t("editor.uploadImage"),
+        blockUploadPlaceholderText: t("editor.clickUploadOrPaste"),
+        blockCaptionPlaceholderText: t("editor.imageCaption"),
         onImageLoadError: () => {
-          ElMessage.warning("图片加载失败（检查路径或先保存文档）");
+          ElMessage.warning(t("msg.imageLoadFail"));
         },
       },
       [Crepe.Feature.Latex]: {
-        inlineEditConfirm: "确认",
+        inlineEditConfirm: t("editor.confirm"),
       },
     },
   };
 }
-
-export { encodeAssetPath };

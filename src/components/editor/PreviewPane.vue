@@ -1,19 +1,23 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { dirname, isAbsolute, join } from "@tauri-apps/api/path";
 import { isTauri } from "@tauri-apps/api/core";
 import { ElMessage } from "element-plus";
 import { useEditorStore } from "@/stores/editor";
 import { useWorkspaceStore } from "@/stores/workspace";
+import { useThemeStore } from "@/stores/theme";
 import { useDocumentActions } from "@/composables/useDocumentActions";
 import { renderMarkdown } from "@/lib/markdown/renderer";
 import { resolvePreviewImages } from "@/lib/markdown/images";
 import { applyTocIdsToHtml, extractToc } from "@/lib/markdown/toc";
 import { clearMermaidCache } from "@/lib/markdown/mermaid";
 
+const { t } = useI18n();
 const editor = useEditorStore();
 const workspace = useWorkspaceStore();
+const theme = useThemeStore();
 const { openPathInTab } = useDocumentActions();
 const html = ref("");
 const pane = ref<HTMLElement | null>(null);
@@ -42,6 +46,15 @@ watch(
   () => [editor.content, editor.filePath] as const,
   ([value, path]) => scheduleRender(value, path),
   { immediate: true },
+);
+
+/** 主题明暗变化时重渲代码块 / Mermaid */
+watch(
+  () => [theme.themeId, theme.isDark] as const,
+  () => {
+    clearMermaidCache();
+    scheduleRender(editor.content, editor.filePath);
+  },
 );
 
 function isMarkdownHref(href: string): boolean {
@@ -104,7 +117,7 @@ async function onPreviewClick(event: MouseEvent) {
     try {
       await openUrl(href);
     } catch {
-      ElMessage.info("无法打开邮件链接");
+      ElMessage.info(t("msg.mailOpenFail"));
     }
     return;
   }
@@ -113,7 +126,7 @@ async function onPreviewClick(event: MouseEvent) {
   event.preventDefault();
   const local = await resolveLocalPath(href);
   if (!local) {
-    ElMessage.info("无法解析该链接");
+    ElMessage.info(t("msg.linkParseFail"));
     return;
   }
 
@@ -125,7 +138,7 @@ async function onPreviewClick(event: MouseEvent) {
   try {
     await openPath(local);
   } catch {
-    ElMessage.warning(`无法打开：${local}`);
+    ElMessage.warning(t("msg.cannotOpen", { path: local }));
   }
 }
 
@@ -147,7 +160,7 @@ const empty = computed(() => !editor.content.trim());
 
 <template>
   <div ref="pane" class="preview-pane" @click="onPreviewClick">
-    <div v-if="empty" class="preview-empty">开始输入 Markdown…</div>
+    <div v-if="empty" class="preview-empty">{{ t("editor.previewEmpty") }}</div>
     <article
       v-else
       class="markdown-preview"

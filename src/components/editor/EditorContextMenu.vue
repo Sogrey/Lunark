@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
+import { useI18n } from "vue-i18n";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { isTauri } from "@tauri-apps/api/core";
 import { getFormatBridge } from "@/lib/editor/formatBridge";
 
 type Submenu = "copyAs" | "paragraph" | "insert" | null;
 
+const { t } = useI18n();
 const open = ref(false);
 const x = ref(0);
 const y = ref(0);
@@ -45,24 +47,24 @@ function placeMenu(clientX: number, clientY: number) {
 }
 
 function onContextMenu(e: MouseEvent) {
-  const t = e.target as HTMLElement | null;
-  if (!t) return;
+  const el = e.target as HTMLElement | null;
+  if (!el) return;
   // 不抢 Crepe「+」/斜杠菜单自身的右键
   if (
-    t.closest(".milkdown-slash-menu") ||
-    t.closest(".milkdown-block-handle") ||
-    t.closest("[data-milkdown-slash]")
+    el.closest(".milkdown-slash-menu") ||
+    el.closest(".milkdown-block-handle") ||
+    el.closest("[data-milkdown-slash]")
   ) {
     return;
   }
   const inEditor =
-    t.closest(".hybrid-editor") ||
-    t.closest(".source-editor") ||
-    t.closest(".cm-editor") ||
-    t.closest(".ProseMirror");
+    el.closest(".hybrid-editor") ||
+    el.closest(".source-editor") ||
+    el.closest(".cm-editor") ||
+    el.closest(".ProseMirror");
   if (!inEditor) return;
   // 双栏预览区只读，不弹编辑菜单
-  if (t.closest(".preview-pane") || t.closest(".markdown-preview")) return;
+  if (el.closest(".preview-pane") || el.closest(".markdown-preview")) return;
   if (!bridge()) return;
 
   e.preventDefault();
@@ -182,7 +184,7 @@ function insertImage() {
   bridge()?.runBlockAction("image");
 }
 function insertFootnote() {
-  bridge()?.insertSnippet("[^1]\n\n[^1]: 脚注内容");
+  bridge()?.insertSnippet(`[^1]\n\n[^1]: ${t("editor.footnoteBody")}`);
 }
 function insertHr() {
   bridge()?.runBlockAction("hr");
@@ -226,8 +228,8 @@ function onKey(e: KeyboardEvent) {
 
 function onPointerDown(e: MouseEvent) {
   if (!open.value) return;
-  const t = e.target as HTMLElement | null;
-  if (t?.closest(".ctx-menu") || t?.closest(".ctx-sub")) return;
+  const el = e.target as HTMLElement | null;
+  if (el?.closest(".ctx-menu") || el?.closest(".ctx-sub")) return;
   close();
 }
 
@@ -262,21 +264,41 @@ onUnmounted(() => {
         role="menuitem"
         @click="run(() => void searchGoogle())"
       >
-        使用 Google 搜索
+        {{ t("editor.searchGoogle") }}
       </button>
       <div v-if="hasSelection" class="divider" />
 
-      <div class="icon-row" role="group" aria-label="剪贴板">
-        <button type="button" class="icon" title="剪切" @click="run(() => void cut())">
+      <div class="icon-row" role="group" :aria-label="t('editor.clipboardAria')">
+        <button
+          type="button"
+          class="icon"
+          :title="t('menu.cut')"
+          @click="run(() => void cut())"
+        >
           ✂
         </button>
-        <button type="button" class="icon" title="复制" @click="run(() => void copy())">
+        <button
+          type="button"
+          class="icon"
+          :title="t('menu.copy')"
+          @click="run(() => void copy())"
+        >
           ⧉
         </button>
-        <button type="button" class="icon" title="粘贴" @click="run(() => void paste())">
+        <button
+          type="button"
+          class="icon"
+          :title="t('menu.paste')"
+          @click="run(() => void paste())"
+        >
           📋
         </button>
-        <button type="button" class="icon" title="删除" @click="run(del)">
+        <button
+          type="button"
+          class="icon"
+          :title="t('editor.delete')"
+          @click="run(del)"
+        >
           🗑
         </button>
       </div>
@@ -288,21 +310,52 @@ onUnmounted(() => {
         @mouseenter="openSub('copyAs', $event)"
         @click="openSub('copyAs', $event)"
       >
-        复制 / 粘贴为…
+        {{ t("editor.copyPasteAs") }}
         <span class="arrow">›</span>
       </button>
 
       <div class="divider" />
 
-      <div class="fmt-grid" role="group" aria-label="格式">
-        <button type="button" class="fmt" title="粗体" @click="run(bold)"><b>B</b></button>
-        <button type="button" class="fmt" title="斜体" @click="run(italic)"><i>I</i></button>
-        <button type="button" class="fmt mono" title="行内代码" @click="run(code)">&lt;/&gt;</button>
-        <button type="button" class="fmt" title="链接" @click="run(link)">🔗</button>
-        <button type="button" class="fmt" title="引用" @click="run(quote)">❝</button>
-        <button type="button" class="fmt" title="有序列表" @click="run(ordered)">1.</button>
-        <button type="button" class="fmt" title="无序列表" @click="run(bullet)">•</button>
-        <button type="button" class="fmt" title="任务列表" @click="run(task)">☑</button>
+      <div class="fmt-grid" role="group" :aria-label="t('editor.formatAria')">
+        <button type="button" class="fmt" :title="t('editor.bold')" @click="run(bold)">
+          <b>B</b>
+        </button>
+        <button type="button" class="fmt" :title="t('editor.italic')" @click="run(italic)">
+          <i>I</i>
+        </button>
+        <button
+          type="button"
+          class="fmt mono"
+          :title="t('editor.inlineCode')"
+          @click="run(code)"
+        >
+          &lt;/&gt;
+        </button>
+        <button type="button" class="fmt" :title="t('editor.link')" @click="run(link)">
+          🔗
+        </button>
+        <button type="button" class="fmt" :title="t('editor.quote')" @click="run(quote)">
+          ❝
+        </button>
+        <button
+          type="button"
+          class="fmt"
+          :title="t('editor.orderedList')"
+          @click="run(ordered)"
+        >
+          1.
+        </button>
+        <button
+          type="button"
+          class="fmt"
+          :title="t('editor.bulletList')"
+          @click="run(bullet)"
+        >
+          •
+        </button>
+        <button type="button" class="fmt" :title="t('editor.taskList')" @click="run(task)">
+          ☑
+        </button>
       </div>
 
       <div class="divider" />
@@ -314,7 +367,7 @@ onUnmounted(() => {
         @mouseenter="openSub('paragraph', $event)"
         @click="openSub('paragraph', $event)"
       >
-        段落
+        {{ t("editor.paragraph") }}
         <span class="arrow">›</span>
       </button>
       <button
@@ -324,7 +377,7 @@ onUnmounted(() => {
         @mouseenter="openSub('insert', $event)"
         @click="openSub('insert', $event)"
       >
-        插入
+        {{ t("editor.insert") }}
         <span class="arrow">›</span>
       </button>
     </div>
@@ -337,11 +390,11 @@ onUnmounted(() => {
       @mouseleave="submenu = null"
     >
       <button type="button" class="row" @click="run(() => void copyAsMarkdown())">
-        <span>复制为 Markdown</span>
+        <span>{{ t("editor.copyAsMarkdown") }}</span>
         <kbd>Ctrl+Shift+C</kbd>
       </button>
       <button type="button" class="row" @click="run(() => void pasteAsPlain())">
-        <span>粘贴为纯文本</span>
+        <span>{{ t("editor.pasteAsPlain") }}</span>
         <kbd>Ctrl+Shift+V</kbd>
       </button>
     </div>
@@ -360,12 +413,12 @@ onUnmounted(() => {
         class="row"
         @click="run(() => heading(lv))"
       >
-        <span>{{ lv }} 级标题</span>
+        <span>{{ t("editor.headingLevel", { n: lv }) }}</span>
         <kbd>Ctrl+{{ lv }}</kbd>
       </button>
       <div class="divider" />
       <button type="button" class="row" @click="run(() => heading(0))">
-        <span>段落</span>
+        <span>{{ t("editor.paragraph") }}</span>
         <kbd>Ctrl+0</kbd>
       </button>
     </div>
@@ -378,32 +431,40 @@ onUnmounted(() => {
       @mouseleave="submenu = null"
     >
       <button type="button" class="row" @click="run(insertImage)">
-        <span>图像</span>
+        <span>{{ t("editor.image") }}</span>
         <kbd>Ctrl+Shift+I</kbd>
       </button>
       <div class="divider" />
-      <button type="button" class="row" @click="run(insertFootnote)">脚注</button>
-      <button type="button" class="row" @click="run(insertHr)">水平分割线</button>
+      <button type="button" class="row" @click="run(insertFootnote)">
+        {{ t("editor.footnote") }}
+      </button>
+      <button type="button" class="row" @click="run(insertHr)">
+        {{ t("editor.hr") }}
+      </button>
       <button type="button" class="row" @click="run(insertTable)">
-        <span>表格</span>
+        <span>{{ t("editor.table") }}</span>
         <kbd>Ctrl+T</kbd>
       </button>
       <button type="button" class="row" @click="run(insertCode)">
-        <span>代码块</span>
+        <span>{{ t("editor.codeBlock") }}</span>
         <kbd>Ctrl+Shift+K</kbd>
       </button>
       <button type="button" class="row" @click="run(insertMath)">
-        <span>公式块</span>
+        <span>{{ t("editor.mathBlock") }}</span>
         <kbd>Ctrl+Shift+M</kbd>
       </button>
-      <button type="button" class="row" @click="run(insertToc)">内容目录</button>
-      <button type="button" class="row" @click="run(insertYaml)">YAML Front Matter</button>
+      <button type="button" class="row" @click="run(insertToc)">
+        {{ t("editor.toc") }}
+      </button>
+      <button type="button" class="row" @click="run(insertYaml)">
+        {{ t("editor.yamlFm") }}
+      </button>
       <div class="divider" />
       <button type="button" class="row" @click="run(() => insertPara('above'))">
-        段落（上方）
+        {{ t("editor.paraAbove") }}
       </button>
       <button type="button" class="row" @click="run(() => insertPara('below'))">
-        段落（下方）
+        {{ t("editor.paraBelow") }}
       </button>
     </div>
   </Teleport>

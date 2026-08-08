@@ -76,6 +76,73 @@ export function findTableAtLine(
   return { start, end, lines, colCount };
 }
 
+/** 文档中全部 GFM 表格（按出现顺序） */
+export function findAllTables(docLines: string[]): MdTableBlock[] {
+  const out: MdTableBlock[] = [];
+  let i = 0;
+  while (i < docLines.length) {
+    const t = findTableAtLine(docLines, i);
+    if (t && t.start === i) {
+      out.push(t);
+      i = t.end;
+      continue;
+    }
+    i += 1;
+  }
+  return out;
+}
+
+function headersEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((c, i) => c === (b[i] ?? ""));
+}
+
+function headersLoose(a: string[], b: string[]): boolean {
+  if (b.length === 0) return false;
+  return b.every((h, i) => !h || a[i] === h || (a[i] ?? "").includes(h));
+}
+
+/**
+ * 混合模式：用 DOM 表格序号 + 表头 + 数据行数匹配源码表格。
+ */
+export function matchTableFromDom(
+  docLines: string[],
+  opts: {
+    headerCells: string[];
+    /** DOM 中除表头外的行数（GFM 无独立 sep 行） */
+    bodyRowCount: number;
+    /** 编辑器内第几个 table（0-based） */
+    tableIndexAmongAll: number;
+  },
+): MdTableBlock | null {
+  const tables = findAllTables(docLines);
+  if (tables.length === 0) return null;
+
+  const scored = tables.map((t, idx) => {
+    const head = splitRow(t.lines[0]!);
+    let score = 0;
+    if (headersEqual(head, opts.headerCells)) score += 10;
+    else if (headersLoose(head, opts.headerCells)) score += 4;
+    const bodyRows = Math.max(0, t.lines.length - 2);
+    if (bodyRows === opts.bodyRowCount) score += 3;
+    if (idx === opts.tableIndexAmongAll) score += 5;
+    return { t, score, idx };
+  });
+
+  scored.sort((a, b) => b.score - a.score || a.idx - b.idx);
+  const best = scored[0];
+  if (best && best.score >= 5) return best.t;
+
+  // 序号回退（Crepe 与源码表格顺序通常一致）
+  if (
+    opts.tableIndexAmongAll >= 0 &&
+    opts.tableIndexAmongAll < tables.length
+  ) {
+    return tables[opts.tableIndexAmongAll]!;
+  }
+  return tables[0] ?? null;
+}
+
 export function getColumnAlign(table: MdTableBlock, col: number): ColAlign {
   const sep = splitRow(table.lines[1]!);
   const cell = sep[col] ?? "---";

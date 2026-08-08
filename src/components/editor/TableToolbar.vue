@@ -3,6 +3,7 @@
  * 光标在表格内时，浮于表格上方的操作条（对齐 / 更多 / 删除）。
  */
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { useEditorStore } from "@/stores/editor";
 import {
   applyTableToDoc,
@@ -13,6 +14,7 @@ import {
   getColumnAlign,
   insertColumn,
   insertRow,
+  matchTableFromDom,
   moveColumn,
   moveRow,
   setColumnAlign,
@@ -21,6 +23,7 @@ import {
   deleteColumn,
 } from "@/lib/editor/mdTable";
 
+const { t } = useI18n();
 const editor = useEditorStore();
 
 const visible = ref(false);
@@ -88,24 +91,18 @@ function resolveFromHybrid(): boolean {
   const headerCells = Array.from(
     tableEl.querySelectorAll("tr:first-child th, tr:first-child td"),
   ).map((c) => c.textContent?.trim() ?? "");
+  const host = tableEl.closest(".hybrid-editor");
+  const allTables = host
+    ? Array.from(host.querySelectorAll("table"))
+    : [tableEl];
+  const tableIndexAmongAll = Math.max(0, allTables.indexOf(tableEl));
+  const bodyRowCount = Math.max(0, tableEl.querySelectorAll("tr").length - 1);
   const lines = splitLines(editor.content);
-  let found: MdTableBlock | null = null;
-  for (let i = 0; i < lines.length; i++) {
-    const t = findTableAtLine(lines, i);
-    if (!t) continue;
-    const head = t.lines[0] ?? "";
-    if (headerCells.every((h) => !h || head.includes(h))) {
-      found = t;
-      break;
-    }
-  }
-  if (!found) {
-    // fallback: first table
-    for (let i = 0; i < lines.length; i++) {
-      found = findTableAtLine(lines, i);
-      if (found) break;
-    }
-  }
+  const found = matchTableFromDom(lines, {
+    headerCells,
+    bodyRowCount,
+    tableIndexAmongAll,
+  });
   if (!found) return false;
   tableRef.value = found;
   align.value = getColumnAlign(found, col.value);
@@ -198,10 +195,10 @@ function onDeleteTable() {
 }
 
 function onDocClick(e: MouseEvent) {
-  const t = e.target as Node | null;
-  if (!t) return;
+  const el = e.target as Node | null;
+  if (!el) return;
   const bar = document.querySelector(".table-toolbar");
-  if (bar?.contains(t)) return;
+  if (bar?.contains(el)) return;
   refresh();
 }
 
@@ -238,12 +235,12 @@ watch(
       @mousedown.prevent
     >
       <div class="left">
-        <span class="hint" title="表格">▦</span>
+        <span class="hint" :title="t('editor.tableHint')">▦</span>
         <button
           type="button"
           class="icon align"
           :class="{ active: alignLeft }"
-          title="左对齐"
+          :title="t('editor.alignLeft')"
           @click="setAlign('left')"
         >
           <span class="align-ico left" />
@@ -252,7 +249,7 @@ watch(
           type="button"
           class="icon align"
           :class="{ active: alignCenter }"
-          title="居中"
+          :title="t('editor.alignCenter')"
           @click="setAlign('center')"
         >
           <span class="align-ico center" />
@@ -261,7 +258,7 @@ watch(
           type="button"
           class="icon align"
           :class="{ active: alignRight }"
-          title="右对齐"
+          :title="t('editor.alignRight')"
           @click="setAlign('right')"
         >
           <span class="align-ico right" />
@@ -273,36 +270,58 @@ watch(
           <button
             type="button"
             class="more"
-            title="更多操作"
+            :title="t('editor.moreActions')"
             :aria-expanded="menuOpen"
             @click.stop="menuOpen = !menuOpen"
           >
-            更多操作 ⋮
+            {{ t("editor.moreActions") }} ⋮
           </button>
           <div v-if="menuOpen" class="menu" role="menu">
-            <button type="button" @click="onInsertRow('above')">上方插入行</button>
-            <button type="button" @click="onInsertRow('below')">
-              下方插入行 <kbd>Ctrl+Enter</kbd>
+            <button type="button" @click="onInsertRow('above')">
+              {{ t("editor.insertRowAbove") }}
             </button>
-            <button type="button" @click="onInsertCol('left')">左侧插入列</button>
-            <button type="button" @click="onInsertCol('right')">右侧插入列</button>
+            <button type="button" @click="onInsertRow('below')">
+              {{ t("editor.insertRowBelow") }} <kbd>Ctrl+Enter</kbd>
+            </button>
+            <button type="button" @click="onInsertCol('left')">
+              {{ t("editor.insertColLeft") }}
+            </button>
+            <button type="button" @click="onInsertCol('right')">
+              {{ t("editor.insertColRight") }}
+            </button>
             <div class="sep" />
-            <button type="button" @click="onMoveRow(-1)">上移该行 <kbd>Alt+↑</kbd></button>
-            <button type="button" @click="onMoveRow(1)">下移该行 <kbd>Alt+↓</kbd></button>
-            <button type="button" @click="onMoveCol(-1)">左移该列 <kbd>Alt+←</kbd></button>
-            <button type="button" @click="onMoveCol(1)">右移该列 <kbd>Alt+→</kbd></button>
+            <button type="button" @click="onMoveRow(-1)">
+              {{ t("editor.moveRowUp") }} <kbd>Alt+↑</kbd>
+            </button>
+            <button type="button" @click="onMoveRow(1)">
+              {{ t("editor.moveRowDown") }} <kbd>Alt+↓</kbd>
+            </button>
+            <button type="button" @click="onMoveCol(-1)">
+              {{ t("editor.moveColLeft") }} <kbd>Alt+←</kbd>
+            </button>
+            <button type="button" @click="onMoveCol(1)">
+              {{ t("editor.moveColRight") }} <kbd>Alt+→</kbd>
+            </button>
             <div class="sep" />
-            <button type="button" @click="onDeleteCol">删除列</button>
-            <button type="button" @click="onCopyTable">复制表格</button>
-            <button type="button" @click="onFormat">格式化表格源码</button>
+            <button type="button" @click="onDeleteCol">
+              {{ t("editor.deleteCol") }}
+            </button>
+            <button type="button" @click="onCopyTable">
+              {{ t("editor.copyTable") }}
+            </button>
+            <button type="button" @click="onFormat">
+              {{ t("editor.formatTable") }}
+            </button>
             <div class="sep" />
-            <button type="button" class="danger" @click="onDeleteTable">删除表格</button>
+            <button type="button" class="danger" @click="onDeleteTable">
+              {{ t("editor.deleteTable") }}
+            </button>
           </div>
         </div>
         <button
           type="button"
           class="icon danger"
-          title="删除表格"
+          :title="t('editor.deleteTable')"
           @click="onDeleteTable"
         >
           🗑
