@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { fileURLToPath, URL } from "node:url";
@@ -11,7 +12,14 @@ export default defineConfig(async () => ({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  test: {
+    environment: "node",
+    include: ["src/**/*.{test,spec}.ts"],
+  },
   clearScreen: false,
+  optimizeDeps: {
+    include: ["html-to-image"],
+  },
   server: {
     port: 1420,
     strictPort: true,

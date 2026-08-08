@@ -8,8 +8,10 @@
 |---|---|---|
 | 工程基建 | Tauri2 + Vue3 + pnpm 锁定 + 插件 | **完成** |
 | 一期 MVP（方案 B 双栏） | 见 [ROADMAP.md](./ROADMAP.md) | **完成（含打磨）** |
-| 二期 | WYSIWYG（Milkdown Crepe）对标 Typora | **核心完成 · M4 部分（内置主题）** |
-| 三期 | 会话 / 全局搜索 / Vim | **进行中 · Vim 待做** |
+| 二期 | WYSIWYG（Milkdown Crepe）对标 Typora | **核心完成 · M4 + 局部语法糖** |
+| 三期 | 会话 / 全局搜索 / Vim | **会话·搜索完成 · Vim 预留** |
+| 工程 | 模块拆分 / 依赖瘦身 / 冒烟清单 | **整理完成 · QA 基本完成** |
+| i18n | 简中 / 繁中 / 英 / 韩 / 日 | **完成（菜单 + 壳层 + 编辑器/Toast）** |
 
 ## 已完成清单
 
@@ -17,7 +19,7 @@
 |---|---|---|
 | 双栏 CM6 + Night + GFM | ✅ | `editor/`、`styles/themes` |
 | 工作区 / Tab / TOC / 图片 | ✅ | 含 Tauri 拖放、文件名净化 |
-| Mermaid / KaTeX / Shiki | ✅ | Shiki 按需加载语言 |
+| Mermaid / KaTeX / Shiki | ✅ | Shiki 按需加载语言；随明暗主题 |
 | 滚动联动 + 查找替换 + store | ✅ | prefs + SearchBar |
 | 关窗 / 关 Tab（保存·不保存·取消） | ✅ | `askSaveDiscardCancel` + `useWindowLifecycle` |
 | 任务列表只读 / 导出未保存提示 | ✅ | renderer + documentActions |
@@ -29,14 +31,20 @@
 | 窗口几何持久化 | ✅ | prefs.window |
 | 外部文件变更提示重载 | ✅ | `useExternalFileWatch` |
 | 导出 HTML / PDF（Typst） | ✅ | 见下 |
+| 导出 Word / 图片 | ✅ | `wordExport` / `imageExport`；编排 `runExports`；菜单文件 |
 | 查找匹配计数 / 全部替换确认 | ✅ | SearchBar |
 | Crepe 混合编辑（M1–M3） | ✅ | `HybridEditor` + Focus / 打字机 / 字数 |
-| 布局精简 | ✅ | `MenuChrome` + `StatusBar`；去 `Toolbar` |
-| 内置主题菜单 | ✅ | 主题：Github / Newsprint / Night / Pixyll / Whitey |
-| 右键菜单 / 表格浮动条 | ✅ | `EditorContextMenu`、`TableToolbar`；块动作对齐 Crepe「+」 |
+| Typora 风局部语法糖 | ✅ | `src/lib/editor/hybrid/*`（选中露源码 / 光标露分隔符） |
+| 工程整理 | ✅ | hybrid 拆分；去无用依赖；`useDocumentActions` 瘦身 |
+| 布局精简 | ✅ | 仅 `StatusBar`（图标）；去中间工具栏 / `MenuChrome` |
+| 主题（内置 + 自定义 CSS） | ✅ | 菜单导入；`themes/examples`；配置目录 `themes/` |
+| 右键菜单 / 表格浮动条 | ✅ | `EditorContextMenu`、`TableToolbar`；多表 DOM 匹配 |
+| 帮助（关于 / 快捷键） | ✅ | 菜单「帮助」· F1；`HelpDialog` |
 | 会话 / 最近打开 / 工作区搜索 | ✅ | `session` store、`GlobalSearchPanel` |
 | 应用图标（月刻） | ✅ | `app-icon.svg` → `tauri icon` |
 | Windows NSIS 安装包 | ✅ | `bundle.targets: ["nsis"]` |
+| i18n 多语言 | ✅ | `vue-i18n`；菜单/壳层/编辑器 UI/Toast；文件对话框标题；Crepe 随语言重建 |
+| 轻量单测 | ✅ | vitest：`wordStats`、`normalizePrefs` |
 
 ### PDF 导出（Typst）细节
 
@@ -49,13 +57,48 @@
 | Mermaid | ✅ | 预渲染后 **栅格化为 PNG** 嵌入（避免 SVG foreignObject 丢字） |
 | 脚注 / 嵌套列表 | ✅ | `#footnote[...]`；列表按深度缩进 |
 
+## 预留 / 已知债
+
+### Crepe 混合 · 切 Tab 性能（预留，有实测卡顿再做）
+
+| 项 | 说明 |
+|---|---|
+| **现状** | `EditorWorkspace`：`HybridEditor` 以 `:key="activeId(+locale)"` 隔离；切 Tab = 卸载旧实例（flush）+ 新建 Crepe，内容正确、串 Tab 已解 |
+| **风险** | 大文档下 `Crepe.create()` 仍占主线程；`await` 不能搬到 Worker（需 DOM） |
+| **可选方案 A** | 轻量：先绘壳 /「加载中」，`rAF` 或短延迟再挂载 — 改善体感 |
+| **可选方案 B** | 根治：未激活 Tab **缓存 Crepe 实例**（隐藏不销毁）— 切换快，换内存 |
+| **触发** | QA 大文档压测或用户反馈「切 Tab 明显卡」后再开；勿与正确性回退混做 |
+
+相关：`HybridEditor.vue`、`EditorWorkspace.vue`；手测清单见 [QA-SMOKE.md](./QA-SMOKE.md) §3。
+
+### Vim 编辑模式（预留，暂不做）
+
+| 项 | 说明 |
+|---|---|
+| **含义** | 模态编辑（Normal / Insert / Visual），非内嵌完整 Neovim |
+| **现状** | 未实现；路线图三期可选项 |
+| **建议 MVP** | 仅 **源码 / 双栏** CM6 接入 `@replit/codemirror-vim` + 菜单开关 + prefs；状态栏显示模式可选 |
+| **难点** | **混合 Crepe** 正文是 ProseMirror，整篇 Vim 不能只靠 CM 插件（CM 仅在代码块内） |
+| **注意** | 与全局快捷键、`Esc`（关查找 / 退专注）需排优先级 |
+| **触发** | 明确有源码侧 Vim 需求再开；默认不做混合全文 Vim |
+
+### 图床 / 图片管理（预留，暂不做）
+
+| 项 | 说明 |
+|---|---|
+| **含义** | 上传到图床拿 URL、或统一管理文档旁图片；非本地 `./assets/` 拖贴 |
+| **现状** | 本地插图已可用（拖/贴 → `assets/`）；无远程图床、无独立图片库 UI |
+| **可选方向** | 自建/第三方 API（需配置密钥）；或仅「资源管理」浏览当前文档 assets |
+| **注意** | 与「纯本地、不强制云」产品定位冲突时需可选、默关 |
+| **触发** | 明确有远程图/集中管理需求再开 |
+
 ## 建议下一迭代
 
 | 优先级 | 项 |
 |---|---|
-| 可选 | 三期 **Vim** 编辑模式 |
-| 后置 M4 余量 | 自定义主题 CSS 导入、图床、Word / 图片导出 |
-| 体验债 | 混合模式多表格身份匹配、Shiki 随亮色主题切换 |
+| **预留** | Vim（暂不做） |
+| **预留** | Crepe 切 Tab 性能（实测卡顿再做） |
+| **预留** | 图床 / 图片管理（暂不做） |
 
 ## 迭代记录
 
@@ -73,8 +116,20 @@
 | 2026-08-07 | **二期 M3**：字数状态栏、Focus（F8）、打字机（F9）、prefs |
 | 2026-08-07 | **三期启动**：标签会话记忆 + 最近打开（侧栏/菜单） |
 | 2026-08-07 | **三期**：工作区全局搜索（侧栏「搜索」· Ctrl+Shift+F） |
-| 2026-08-08 | 布局精简：去工具栏；标题含模式；MenuChrome；Typora 风状态栏 |
+| 2026-08-08 | 布局精简：去中间工具栏 / MenuChrome；状态栏图标化；标题含模式 |
 | 2026-08-08 | 右键菜单 / 表格浮动工具条；块动作与 Crepe「+」同源 |
 | 2026-08-08 | **主题菜单**：五套内置主题 + prefs 持久化；CM/Mermaid 随明暗适配 |
 | 2026-08-08 | 应用图标（月刻 SVG）；运行时 `set_icon`；NSIS 打包（规避 WiX 超时） |
 | 2026-08-08 | 风险修复：`jumpToLine` 等 CM 就绪、查找切源码提示、`clearFormatBridge` |
+| 2026-08-08 | **自定义主题 CSS**：导入/文件夹/移除；示例 slate / paper |
+| 2026-08-08 | **导出 Word / PNG**：菜单文件；Word 为 .doc（HTML 兼容）；PNG 用 html-to-image |
+| 2026-08-08 | 打磨：多表格 DOM 匹配、Shiki 随明暗、帮助菜单、prefs 白名单；[QA-SMOKE](./QA-SMOKE.md) |
+| 2026-08-08 | 工程复盘：拆分 `hybrid/` 语法糖模块；去无用依赖（milkdown/vue、vue-codemirror 等）与死导出 |
+| 2026-08-08 | 导出编排抽到 `lib/export/runExports`；`useDocumentActions` 只保留打开/保存/工作区 |
+| 2026-08-08 | **i18n**：vue-i18n 五语；原生菜单去系统预定义混排；语言菜单 + prefs |
+| 2026-08-09 | **i18n 深化**：编辑器/右键/表格/查找/Toast/对话框；Crepe 随 locale 重建；vitest 起步 |
+| 2026-08-09 | **预留记录**：Crepe 切 Tab 性能（延后挂载 vs 实例缓存；Worker 不可行） |
+| 2026-08-09 | **预留记录**：Vim 模式暂不做（建议日后仅 CM6 MVP；混合全文另议） |
+| 2026-08-09 | **预留记录**：图床 / 图片管理暂不做（本地 assets 已够用） |
+| 2026-08-09 | 对照三次风险报告：加固自定义主题 `sanitizeCss`；R-15/R-10/R-11/R-16 复核为已缓解或可接受 |
+| 2026-08-09 | 三次复检：采纳「一般可控」；补 R-09 BOM 归一化、开发态 i18n missing warn；R-03 仍预留 |

@@ -24,17 +24,17 @@
    - 代码块语法高亮（多语言）
 5. **界面组件**
    - 侧边栏：文件树、大纲、工作区搜索；文件 Tab 多文档
-   - 无可见工具栏：原生菜单 + 轻量 MenuChrome + Typora 风状态栏
+   - 无中间工具栏：原生菜单 + Typora 风图标状态栏
    - 大纲 TOC 快速跳转；右键菜单；表格浮动工具条
    - 专注模式 Focus、打字机 Typewriter（二期）
    - 字数统计、行号、搜索替换
 6. **文件能力**
    - 直接读写本地 `.md`，拖拽图片，相对路径存储
-   - 导出：PDF / HTML（Word / 图片后置）
+   - 导出：PDF / HTML / Word / 图片（图床后置）
    - 会话记忆、最近打开、Windows NSIS 安装包
 7. **主题系统**
-   - 默认 Night；菜单可切换 Github / Newsprint / Night / Pixyll / Whitey
-   - CSS 变量驱动；自定义主题文件导入后置
+   - 默认 Night；菜单可切换内置主题，并导入自定义 `.css`
+   - CSS 变量驱动（`[data-theme]` / `[data-theme="custom"]`）
 
 ### 3. 产品优势方向
 1. Tauri 2：包体积小、启动快、内存占用低（相对 Chromium 壳）
@@ -98,29 +98,29 @@
 5. ✅ GFM 标准支持，YAML front‑matter（脚注、任务列表已接）
 6. ✅ Mermaid、KaTeX、Shiki
 7. ✅ 源码模式切换（`Ctrl+/`）；查找 / 替换面板（`Ctrl+F` / `Ctrl+H`，含匹配计数）
-8. ✅ 基础导出：导出 HTML、PDF（Typst：CJK / 公式 / Mermaid PNG / 脚注；失败可回退系统打印）
+8. ✅ 基础导出：HTML、PDF（Typst）、Word（.doc）、图片（.png）
 9. ✅ 大纲 TOC 面板（侧栏「文件 / 大纲」双 Tab）；Element‑Plus Message 已接
 10. ✅ plugin-store：分栏比例、视图模式、侧栏、最近工作区、窗口几何
 
 ### P1（二期）— 一体化改造
-1. ✅ **混合 WYSIWYG 一体化编辑（Milkdown Crepe · M1/M2）**
+1. ✅ **混合 WYSIWYG 一体化编辑（Milkdown Crepe · M1/M2）**；局部语法糖对标 Typora
 2. ✅ Focus 专注模式、打字机模式（M3）
-3. ✅ 字数统计（M3）；布局精简（菜单 + 状态栏）；右键 / 表格工具条
-4. ✅ 内置主题菜单切换（M4 子集）；⬜ 自定义主题 CSS 导入（后置）
-5. ⬜ 图片管理、简单图床（M4 后置）
-6. ⬜ 导出 Word、图片（M4 后置）
+3. ✅ 字数统计（M3）；布局精简（菜单 + 状态栏）；右键 / 表格工具条；帮助（F1）
+4. ✅ 内置主题 + 自定义 CSS 导入（M4）
+5. ⏸ 图片管理、简单图床（预留暂不做；见 PROGRESS「预留 / 已知债」）
+6. ✅ 导出 Word、图片（编排 `runExports`）
 
 ### P2（差异化）
 1. ✅ 标签页会话记忆；最近打开列表
 2. ✅ 全局文件夹搜索 md 内容
-3. ⬜ Vim 编辑模式
+3. ⏸ Vim 编辑模式（预留暂不做；见 PROGRESS「预留 / 已知债」）
 
 ## 四、项目命名
 > ✅ 已选：**Lunark（月刻）**
 
 ## 五、风险与踩坑提示
 1. **WYSIWYG 一体化**：二期已采用 Milkdown Crepe；查找仍依赖源码模式（混合下会提示并切换）。
-2. 主题：CSS 变量驱动；勿只改背景。亮色主题下预览 Shiki 仍可能偏暗色（已知债）。
+2. 主题：CSS 变量驱动；勿只改背景。预览 Shiki / Mermaid 随 `data-theme-mode` 重渲。
 3. Tauri 本地图片：相对路径必须走 asset 协议。
-4. 大文档性能：CodeMirror 6 增量渲染，markdown-it 防抖，避免输入时频繁重绘。
+4. 大文档性能：CodeMirror 6 增量渲染，markdown-it 防抖；人工压测见 [QA-SMOKE.md](./QA-SMOKE.md)。
 5. Windows 打包：当前默认 NSIS；MSI 需 WiX（GitHub 下载可能超时）。改图标后需完整重建/重启 exe。
