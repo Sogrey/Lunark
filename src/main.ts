@@ -1,6 +1,7 @@
 import { createApp } from "vue";
 import { createPinia } from "pinia";
 import App from "./App.vue";
+import { i18n } from "@/lib/i18n";
 
 import "@/styles/themes/night.css";
 import "@/styles/themes/github.css";
@@ -15,4 +16,5 @@ import "element-plus/es/components/message/style/css";
 
 const app = createApp(App);
 app.use(createPinia());
+app.use(i18n);
 app.mount("#app");
