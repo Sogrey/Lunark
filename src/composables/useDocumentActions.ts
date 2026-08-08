@@ -1,6 +1,4 @@
-import { ask } from "@tauri-apps/plugin-dialog";
 import { ElMessage } from "element-plus";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { useEditorStore } from "@/stores/editor";
 import { useTabsStore, type DocTab } from "@/stores/tabs";
 import { useWorkspaceStore } from "@/stores/workspace";
@@ -9,26 +7,23 @@ import {
   ensureMdExtension,
   fileBasename,
   pickOpenMarkdown,
-  pickSaveHtml,
   pickSaveMarkdown,
-  pickSavePdf,
   readMarkdownFile,
   writeMarkdownFile,
-  writeTextFileAt,
 } from "@/lib/fs/documentIo";
 import {
   buildMarkdownTree,
   folderDisplayName,
   pickOpenFolder,
+  type TreeNode,
 } from "@/lib/fs/workspaceIo";
 import {
-  buildExportHtml,
-  printHtmlAsPdf,
-} from "@/lib/export/htmlExport";
-import {
-  exportMarkdownToPdfFile,
-  prepareTypstMarkdown,
-} from "@/lib/export/typstPdf";
+  exportDocumentDocx,
+  exportDocumentHtml,
+  exportDocumentPdf,
+  exportDocumentPng,
+  type ExportDoc,
+} from "@/lib/export/runExports";
 import {
   persistRecentNow,
   persistWorkspacePath,
@@ -36,31 +31,34 @@ import {
 import { discardTabEditorState } from "@/lib/editor/tabEditorStates";
 import { askSaveDiscardCancel } from "@/lib/dialog/saveChoice";
 import { rememberDiskMtime } from "@/composables/useExternalFileWatch";
+import { t } from "@/lib/i18n";
 
 async function noteRecent(path: string) {
   useSessionStore().touchRecent(path, fileBasename(path));
   await persistRecentNow();
 }
-function pdfNameFromMd(name: string): string {
-  return name.replace(/\.(md|markdown|mdown|mkd)$/i, "") + ".pdf";
-}
 
-function htmlNameFromMd(name: string): string {
-  return name.replace(/\.(md|markdown|mdown|mkd)$/i, "") + ".html";
-}
-
-function hasLocalImageRefs(source: string): boolean {
-  return /!\[[^\]]*]\(\s*(?:\.\.?\/|\/|[a-zA-Z]:)/.test(source);
-}
-
-async function revealExported(path: string) {
-  try {
-    await revealItemInDir(path);
-  } catch {
-    /* 可选能力，失败静默 */
+function countMdFiles(nodes: TreeNode[]): number {
+  let n = 0;
+  for (const node of nodes) {
+    if (node.kind === "file") n += 1;
+    else n += countMdFiles(node.children);
   }
+  return n;
 }
 
+function currentExportDoc(editor: ReturnType<typeof useEditorStore>): ExportDoc {
+  return {
+    content: editor.content,
+    fileName: editor.fileName,
+    filePath: editor.filePath,
+  };
+}
+
+/**
+ * 文档相关操作：打开/保存/工作区/关 Tab。
+ * 导出实现见 `@/lib/export/runExports`，此处仅转发以保持菜单等调用方 API 不变。
+ */
 export function useDocumentActions() {
   const editor = useEditorStore();
   const tabs = useTabsStore();
@@ -74,9 +72,9 @@ export function useDocumentActions() {
       tabs.openOrFocus(path, fileBasename(path), text);
       await rememberDiskMtime(path);
       await noteRecent(path);
-      ElMessage.success(`已打开 ${fileBasename(path)}`);
+      ElMessage.success(t("msg.opened", { name: fileBasename(path) }));
     } catch (e) {
-      ElMessage.error(e instanceof Error ? e.message : "打开失败");
+      ElMessage.error(e instanceof Error ? e.message : t("msg.openFail"));
     }
   }
 
@@ -92,11 +90,13 @@ export function useDocumentActions() {
       const mdCount = countMdFiles(tree);
       ElMessage.success(
         mdCount > 0
-          ? `已打开工作区（${mdCount} 个 Markdown）`
-          : "已打开工作区（未找到 .md 文件）",
+          ? t("msg.openedWorkspace", { n: mdCount })
+          : t("msg.openedWorkspaceEmpty"),
       );
     } catch (e) {
-      ElMessage.error(e instanceof Error ? e.message : "打开文件夹失败");
+      ElMessage.error(
+        e instanceof Error ? e.message : t("msg.openFolderFail"),
+      );
     } finally {
       workspace.treeLoading = false;
     }
@@ -104,7 +104,7 @@ export function useDocumentActions() {
 
   async function refreshFolder() {
     if (!workspace.rootPath) {
-      ElMessage.info("尚未打开文件夹");
+      ElMessage.info(t("msg.noFolder"));
       return;
     }
     try {
@@ -115,9 +115,9 @@ export function useDocumentActions() {
         workspace.rootName ?? folderDisplayName(workspace.rootPath),
         tree,
       );
-      ElMessage.success("文件树已刷新");
+      ElMessage.success(t("msg.treeRefreshed"));
     } catch (e) {
-      ElMessage.error(e instanceof Error ? e.message : "刷新失败");
+      ElMessage.error(e instanceof Error ? e.message : t("msg.refreshFail"));
     } finally {
       workspace.treeLoading = false;
     }
@@ -125,7 +125,7 @@ export function useDocumentActions() {
 
   async function openPathInTab(path: string) {
     try {
-      const existing = tabs.tabs.find((t) => t.path === path);
+      const existing = tabs.tabs.find((tab) => tab.path === path);
       if (existing) {
         tabs.activate(existing.id);
         await noteRecent(path);
@@ -136,14 +136,14 @@ export function useDocumentActions() {
       await rememberDiskMtime(path);
       await noteRecent(path);
     } catch (e) {
-      ElMessage.error(e instanceof Error ? e.message : "打开文件失败");
+      ElMessage.error(e instanceof Error ? e.message : t("msg.openFileFail"));
     }
   }
 
   async function clearRecentFiles() {
     useSessionStore().clearRecent();
     await persistRecentNow();
-    ElMessage.success("已清除最近打开");
+    ElMessage.success(t("msg.recentCleared"));
   }
 
   async function saveFile(): Promise<boolean> {
@@ -156,7 +156,7 @@ export function useDocumentActions() {
       }
       return await saveFileAs();
     } catch (e) {
-      ElMessage.error(e instanceof Error ? e.message : "保存失败");
+      ElMessage.error(e instanceof Error ? e.message : t("msg.saveFail"));
       return false;
     }
   }
@@ -173,10 +173,10 @@ export function useDocumentActions() {
       tabs.markActiveSaved();
       await rememberDiskMtime(path);
       await noteRecent(path);
-      ElMessage.success(`已保存为 ${fileBasename(path)}`);
+      ElMessage.success(t("msg.savedAs", { name: fileBasename(path) }));
       return true;
     } catch (e) {
-      ElMessage.error(e instanceof Error ? e.message : "另存为失败");
+      ElMessage.error(e instanceof Error ? e.message : t("msg.saveAsFail"));
       return false;
     }
   }
@@ -190,7 +190,7 @@ export function useDocumentActions() {
         await rememberDiskMtime(tab.path);
         return true;
       } catch (e) {
-        ElMessage.error(e instanceof Error ? e.message : "保存失败");
+        ElMessage.error(e instanceof Error ? e.message : t("msg.saveFail"));
         return false;
       }
     }
@@ -198,110 +198,29 @@ export function useDocumentActions() {
     return await saveFileAs();
   }
 
-  async function confirmExportWithoutPath(): Promise<boolean> {
-    if (editor.filePath) return true;
-    if (!hasLocalImageRefs(editor.content)) return true;
-    ElMessage.warning("文档尚未保存到磁盘，导出中的相对路径图片将无法嵌入");
-    try {
-      return await ask(
-        "当前文档未保存。相对路径图片无法嵌入导出结果。仍要继续导出吗？",
-        { title: "Lunark", kind: "warning" },
-      );
-    } catch {
-      return window.confirm("文档未保存，相对图片无法嵌入。仍要导出吗？");
-    }
-  }
-
   async function exportHtml() {
-    try {
-      if (!(await confirmExportWithoutPath())) return;
-      const defaultName = htmlNameFromMd(editor.fileName);
-      const path = await pickSaveHtml(defaultName);
-      if (!path) return;
-      const out =
-        path.toLowerCase().endsWith(".html") ||
-        path.toLowerCase().endsWith(".htm")
-          ? path
-          : `${path}.html`;
-      const html = await buildExportHtml(
-        editor.content,
-        editor.fileName,
-        editor.filePath,
-      );
-      await writeTextFileAt(out, html);
-      ElMessage.success(`已导出 ${fileBasename(out)}`);
-      await revealExported(out);
-    } catch (e) {
-      ElMessage.error(e instanceof Error ? e.message : "导出 HTML 失败");
-    }
+    await exportDocumentHtml(currentExportDoc(editor));
   }
 
   async function exportPdf() {
-    let loading: ReturnType<typeof ElMessage> | null = null;
-    try {
-      if (!(await confirmExportWithoutPath())) return;
-      const picked = await pickSavePdf(pdfNameFromMd(editor.fileName));
-      if (!picked) return;
-      const out = picked.toLowerCase().endsWith(".pdf")
-        ? picked
-        : `${picked}.pdf`;
+    await exportDocumentPdf(currentExportDoc(editor));
+  }
 
-      loading = ElMessage({
-        message: "正在导出 PDF（Typst）…",
-        type: "info",
-        duration: 0,
-        showClose: false,
-      });
+  async function exportPng() {
+    await exportDocumentPng(currentExportDoc(editor));
+  }
 
-      const prepared = await prepareTypstMarkdown(
-        editor.content,
-        editor.filePath,
-      );
-      try {
-        await exportMarkdownToPdfFile(
-          prepared.markdown,
-          out,
-          prepared.resourceDir,
-        );
-        loading.close();
-        loading = null;
-        ElMessage.success(`已导出 PDF（Typst）：${fileBasename(out)}`);
-        await revealExported(out);
-      } catch (e) {
-        loading?.close();
-        loading = null;
-        const msg = e instanceof Error ? e.message : String(e);
-        const usePrint = await ask(
-          `Typst 导出失败：\n${msg}\n\n是否改用系统打印对话框（选择「打印到 PDF」）？`,
-          { title: "Lunark", kind: "warning" },
-        );
-        if (!usePrint) return;
-        const html = await buildExportHtml(
-          editor.content,
-          editor.fileName,
-          editor.filePath,
-          "print",
-        );
-        await printHtmlAsPdf(html, editor.fileName);
-        ElMessage.info(
-          "请在打印对话框中选择「Microsoft Print to PDF」或系统 PDF 打印机",
-        );
-      } finally {
-        await prepared.cleanup();
-      }
-    } catch (e) {
-      loading?.close();
-      ElMessage.error(e instanceof Error ? e.message : "导出 PDF 失败");
-    }
+  async function exportDocx() {
+    await exportDocumentDocx(currentExportDoc(editor));
   }
 
   async function closeTab(id: string) {
-    const tab = tabs.tabs.find((t) => t.id === id);
+    const tab = tabs.tabs.find((item) => item.id === id);
     if (!tab) return;
 
     if (tab.dirty) {
       const choice = await askSaveDiscardCancel(
-        `「${tab.name}」有未保存更改，是否保存？`,
+        t("msg.unsavedAsk", { name: tab.name }),
       );
       if (choice === "cancel") return;
       if (choice === "save") {
@@ -324,19 +243,18 @@ export function useDocumentActions() {
 
   /** 关窗：对每个未保存文档询问 保存/不保存/取消 */
   async function confirmCloseWithSave(): Promise<boolean> {
-    const dirtyTabs = tabs.tabs.filter((t) => t.dirty);
+    const dirtyTabs = tabs.tabs.filter((tab) => tab.dirty);
     if (dirtyTabs.length === 0) return true;
 
     for (const tab of dirtyTabs) {
       const choice = await askSaveDiscardCancel(
-        `「${tab.name}」有未保存更改，是否保存后再退出？`,
+        t("msg.unsavedQuitAsk", { name: tab.name }),
       );
       if (choice === "cancel") return false;
       if (choice === "save") {
         const ok = await saveTab(tab);
         if (!ok) return false;
       }
-      // discard：继续下一个
     }
     return true;
   }
@@ -351,6 +269,8 @@ export function useDocumentActions() {
     saveFileAs,
     exportHtml,
     exportPdf,
+    exportPng,
+    exportDocx,
     closeTab,
     closeActiveTab,
     newFile,
@@ -358,13 +278,4 @@ export function useDocumentActions() {
     /** @deprecated 使用 confirmCloseWithSave */
     confirmDiscardAllDirty: confirmCloseWithSave,
   };
-}
-
-function countMdFiles(nodes: import("@/lib/fs/workspaceIo").TreeNode[]): number {
-  let n = 0;
-  for (const node of nodes) {
-    if (node.kind === "file") n += 1;
-    else n += countMdFiles(node.children);
-  }
-  return n;
 }

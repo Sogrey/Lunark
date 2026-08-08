@@ -1,6 +1,7 @@
 import { isTauri } from "@tauri-apps/api/core";
 import { basename, dirname, join } from "@tauri-apps/api/path";
 import { copyFile, exists, mkdir, readFile, writeFile } from "@tauri-apps/plugin-fs";
+import { t } from "@/lib/i18n";
 
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i;
 
@@ -84,7 +85,7 @@ export async function saveDroppedImages(
   docPath: string,
 ): Promise<string[]> {
   if (!isTauri()) {
-    throw new Error("拖拽图片需在 Tauri 桌面环境中运行");
+    throw new Error(t("msg.needTauriImage"));
   }
 
   const assetsDir = await ensureAssetsDir(docPath);
@@ -112,7 +113,7 @@ export async function saveImagesFromPaths(
   docPath: string,
 ): Promise<string[]> {
   if (!isTauri()) {
-    throw new Error("拖拽图片需在 Tauri 桌面环境中运行");
+    throw new Error(t("msg.needTauriImage"));
   }
 
   const assetsDir = await ensureAssetsDir(docPath);

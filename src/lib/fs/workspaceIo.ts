@@ -2,6 +2,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { readDir } from "@tauri-apps/plugin-fs";
 import { join } from "@tauri-apps/api/path";
 import { fileBasename, requireTauri } from "@/lib/fs/documentIo";
+import { t } from "@/lib/i18n";
 
 const SKIP_DIRS = new Set([
   ".git",
@@ -35,7 +36,7 @@ export async function pickOpenFolder(): Promise<string | null> {
   const selected = await open({
     multiple: false,
     directory: true,
-    title: "打开文件夹",
+    title: t("msg.dialogOpenFolder"),
   });
   if (selected === null) return null;
   return typeof selected === "string" ? selected : selected[0] ?? null;
