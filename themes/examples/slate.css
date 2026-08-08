@@ -1,0 +1,50 @@
+/* lunark-theme: Slate */
+/* lunark-dark: true */
+
+/**
+ * Lunark 自定义主题示例（石板灰）。
+ * 用法：菜单「主题 → 导入主题 CSS…」选择本文件，
+ * 或复制到应用配置目录下的 themes/ 文件夹。
+ *
+ * 请用 [data-theme="custom"] 覆盖变量；未写的变量会回退到 Night。
+ */
+[data-theme="custom"] {
+  --bg-color: #2b3036;
+  --side-bar-bg-color: #23272c;
+  --text-color: #c5ccd3;
+  --heading-color: #e8ecf0;
+  --heading-strong-color: #ffffff;
+  --select-text-bg-color: #5b7c99;
+  --select-text-color: #ffffff;
+  --primary-color: #7eb8da;
+  --primary-color-alt: #a8d4ef;
+  --control-text-color: #9aa3ab;
+  --control-text-hover-color: #e8ecf0;
+  --window-border: 1px solid #3d444c;
+  --active-file-bg-color: #1a1d21;
+  --active-file-text-color: #ffffff;
+  --active-file-border-color: #7eb8da;
+  --item-hover-bg-color: #3d444c;
+  --item-hover-text-color: #ffffff;
+  --rawblock-edit-panel-bd: #1f2327;
+  --search-select-bg-color: #5b7c99;
+  --border-color: #3d444c;
+  --code-bg: #1f2327;
+  --blockquote-color: #8b949e;
+  --link-color: #d0d7de;
+  --link-hover-color: #ffffff;
+  --focus-dim-color: #6e7681;
+  --toc-color: #7eb8da;
+  --toolbar-bg: #262a2f;
+  --splitter-color: #3d444c;
+  --splitter-hover: #7eb8da;
+  --scrollbar-thumb: rgba(200, 200, 200, 0.28);
+  --scrollbar-thumb-active: rgba(200, 200, 200, 0.45);
+  --font-ui: "Segoe UI", "Helvetica Neue", Helvetica, Arial, "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  --font-body: "Helvetica Neue", Helvetica, Arial, "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  --font-heading: "Lucida Grande", Corbel, "PingFang SC", "Microsoft YaHei",
+    sans-serif;
+  --font-mono: Cascadia Code, Consolas, Monaco, monospace;
+}

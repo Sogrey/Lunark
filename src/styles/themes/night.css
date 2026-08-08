@@ -1,5 +1,7 @@
 /* Lunark Night tokens — --primary-color 以生效值 #6dc1e7 为准 */
-[data-theme="night"] {
+/* custom：自定义 CSS 未覆盖前的回退（与 Night 一致） */
+[data-theme="night"],
+[data-theme="custom"] {
   --bg-color: #363b40;
   --side-bar-bg-color: #2e3033;
   --text-color: #b8bfc6;

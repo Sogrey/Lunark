@@ -63,3 +63,232 @@
   height: auto;
   display: block;
 }
+
+/* 局部 Markdown 语法糖（Typora 风） */
+.hybrid-editor .lunark-md-delim {
+  color: var(--control-text-color, #8a9199);
+  font-family: var(--font-mono, Consolas, "Courier New", monospace);
+  font-size: 0.92em;
+  font-weight: 400;
+  user-select: none;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.hybrid-editor .lunark-md-heading-mark {
+  margin-right: 0.15em;
+}
+
+.hybrid-editor .lunark-md-empty-heading {
+  color: var(--primary-color-alt, var(--primary-color, #a3d5fe));
+  opacity: 1;
+  font-weight: 600;
+}
+
+/* 空标题：Crepe placeholder 绝对定位，需按 # 级数让位 */
+.hybrid-editor .ProseMirror .crepe-placeholder.lunark-empty-heading-block {
+  position: relative;
+}
+
+.hybrid-editor
+  .ProseMirror
+  .crepe-placeholder.lunark-empty-heading-block::before {
+  /* #*level + 空格；略大于 delim，避免贴边 */
+  left: calc(var(--lunark-h-level, 1) * 0.7em + 0.85em);
+}
+
+.hybrid-editor
+  .ProseMirror
+  .crepe-placeholder.lunark-empty-heading-block[data-lunark-h-level="1"] {
+  --lunark-h-level: 1;
+}
+.hybrid-editor
+  .ProseMirror
+  .crepe-placeholder.lunark-empty-heading-block[data-lunark-h-level="2"] {
+  --lunark-h-level: 2;
+}
+.hybrid-editor
+  .ProseMirror
+  .crepe-placeholder.lunark-empty-heading-block[data-lunark-h-level="3"] {
+  --lunark-h-level: 3;
+}
+.hybrid-editor
+  .ProseMirror
+  .crepe-placeholder.lunark-empty-heading-block[data-lunark-h-level="4"] {
+  --lunark-h-level: 4;
+}
+.hybrid-editor
+  .ProseMirror
+  .crepe-placeholder.lunark-empty-heading-block[data-lunark-h-level="5"] {
+  --lunark-h-level: 5;
+}
+.hybrid-editor
+  .ProseMirror
+  .crepe-placeholder.lunark-empty-heading-block[data-lunark-h-level="6"] {
+  --lunark-h-level: 6;
+}
+
+.hybrid-editor .lunark-md-link-close {
+  word-break: break-all;
+}
+
+.hybrid-editor .lunark-md-image-source {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 6px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--item-hover-bg-color, rgba(255, 255, 255, 0.04));
+  border: 1px solid transparent;
+  font-family: var(--font-mono, Consolas, "Courier New", monospace);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-color);
+}
+
+.hybrid-editor .lunark-md-image-source:focus-within {
+  border-color: var(--primary-color, #5b9bd5);
+}
+
+.hybrid-editor .lunark-md-image-source-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--control-text-color, #8a9199);
+}
+
+.hybrid-editor .lunark-md-image-source-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
+.hybrid-editor .lunark-md-image-source-input::selection {
+  background: var(--primary-color, #3d7eb5);
+  color: #fff;
+}
+
+/* 行内公式：关掉 Crepe 弹层，改用上一行源码 */
+.milkdown-latex-inline-edit,
+.tippy-box:has(.milkdown-latex-inline-edit),
+[data-floating-ui-portal] .milkdown-latex-inline-edit {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+.hybrid-editor .lunark-md-math-source {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--item-hover-bg-color, rgba(255, 255, 255, 0.04));
+  border: 1px solid transparent;
+  font-family: var(--font-mono, Consolas, "Courier New", monospace);
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-color);
+}
+
+.hybrid-editor .lunark-md-math-source:focus-within {
+  border-color: var(--primary-color, #5b9bd5);
+}
+
+.hybrid-editor .lunark-md-math-source-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 块级公式 / Mermaid：选中时上一行源码条（与图片一致）；永久隐藏 Crepe CM */
+.hybrid-editor .lunark-md-preview-source {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: var(--item-hover-bg-color, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-color, #474d54);
+  font-family: var(--font-mono, Consolas, "Courier New", monospace);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-color);
+}
+
+.hybrid-editor .lunark-md-preview-source:focus-within {
+  border-color: var(--primary-color, #5b9bd5);
+}
+
+.hybrid-editor .lunark-md-preview-source-label {
+  font-size: 11px;
+  color: var(--control-text-color, #8a9199);
+  user-select: none;
+}
+
+.hybrid-editor .lunark-md-preview-source-input {
+  width: 100%;
+  min-height: 3.2em;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.hybrid-editor .milkdown-code-block.lunark-preview-first .codemirror-host,
+.hybrid-editor .milkdown-code-block.lunark-preview-first .tools,
+.hybrid-editor .milkdown-code-block.lunark-preview-first .preview-divider,
+.hybrid-editor .milkdown-code-block.lunark-preview-first .preview-label,
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first
+  .preview-toggle-button {
+  display: none !important;
+}
+
+.hybrid-editor .milkdown-code-block.lunark-preview-first {
+  padding-top: 8px;
+}
+
+.hybrid-editor .milkdown-code-block.lunark-preview-first.selected {
+  outline: 1px solid var(--primary-color, #5b9bd5);
+}
+
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first.selected
+  .preview-panel {
+  position: relative;
+  border: 1px solid var(--border-color, #474d54);
+  border-radius: 4px;
+}

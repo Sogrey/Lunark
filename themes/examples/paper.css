@@ -1,0 +1,46 @@
+/* lunark-theme: Paper */
+/* lunark-dark: false */
+
+/**
+ * Lunark 自定义主题示例（纸白）。
+ * 用法：菜单「主题 → 导入主题 CSS…」选择本文件。
+ */
+[data-theme="custom"] {
+  --bg-color: #faf8f5;
+  --side-bar-bg-color: #f0ebe3;
+  --text-color: #3d3a34;
+  --heading-color: #1f1c18;
+  --heading-strong-color: #000000;
+  --select-text-bg-color: #c4a574;
+  --select-text-color: #1f1c18;
+  --primary-color: #8b6914;
+  --primary-color-alt: #a67c1a;
+  --control-text-color: #6b6560;
+  --control-text-hover-color: #1f1c18;
+  --window-border: 1px solid #ddd5c8;
+  --active-file-bg-color: #e8dfd0;
+  --active-file-text-color: #1f1c18;
+  --active-file-border-color: #8b6914;
+  --item-hover-bg-color: #e8dfd0;
+  --item-hover-text-color: #1f1c18;
+  --rawblock-edit-panel-bd: #f0ebe3;
+  --search-select-bg-color: #c4a574;
+  --border-color: #ddd5c8;
+  --code-bg: #efe9df;
+  --blockquote-color: #7a7368;
+  --link-color: #6b4f12;
+  --link-hover-color: #1f1c18;
+  --focus-dim-color: #a39e94;
+  --toc-color: #8b6914;
+  --toolbar-bg: #f0ebe3;
+  --splitter-color: #ddd5c8;
+  --splitter-hover: #8b6914;
+  --scrollbar-thumb: rgba(61, 58, 52, 0.22);
+  --scrollbar-thumb-active: rgba(61, 58, 52, 0.38);
+  --font-ui: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-body: Georgia, "Times New Roman", "PingFang SC", "Microsoft YaHei",
+    serif;
+  --font-heading: Georgia, "Times New Roman", "PingFang SC", "Microsoft YaHei",
+    serif;
+  --font-mono: Consolas, "Courier New", monospace;
+}
