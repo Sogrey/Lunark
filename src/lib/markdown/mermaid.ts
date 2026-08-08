@@ -1,4 +1,5 @@
 import mermaid from "mermaid";
+import { t } from "@/lib/i18n";
 
 export type MermaidThemeMode = "dark" | "light";
 
@@ -106,7 +107,7 @@ export async function renderMermaidSvg(
   } catch (e) {
     document.getElementById(id)?.remove();
     const message = e instanceof Error ? e.message : String(e);
-    return `<pre class="mermaid-error">Mermaid 渲染失败\n${escapeHtml(message)}\n\n${escapeHtml(code)}</pre>`;
+    return `<pre class="mermaid-error">${escapeHtml(t("msg.mermaidFail"))}\n${escapeHtml(message)}\n\n${escapeHtml(code)}</pre>`;
   }
 }
 

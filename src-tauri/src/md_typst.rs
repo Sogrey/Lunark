@@ -6,10 +6,6 @@ use pulldown_cmark::{CodeBlockKind, CowStr, Event, Options, Parser, Tag, TagEnd}
 
 const MATH_PLACEHOLDER_PREFIX: &str = "LUNARKMATH";
 
-pub fn markdown_to_typst(markdown: &str) -> String {
-    markdown_to_typst_with_font(markdown, "FangSong")
-}
-
 pub fn markdown_to_typst_with_font(markdown: &str, font_family: &str) -> String {
     let body = strip_front_matter(markdown);
     let (body, math_slots) = extract_math_placeholders(&body);
@@ -789,6 +785,10 @@ fn from_hex(b: u8) -> Option<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn markdown_to_typst(markdown: &str) -> String {
+        markdown_to_typst_with_font(markdown, "FangSong")
+    }
 
     #[test]
     fn chinese_survives_math_extract() {

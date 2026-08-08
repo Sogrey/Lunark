@@ -6,6 +6,7 @@ import { ElMessage } from "element-plus";
 import { useTabsStore, type DocTab } from "@/stores/tabs";
 import { readMarkdownFile } from "@/lib/fs/documentIo";
 import { discardTabEditorState } from "@/lib/editor/tabEditorStates";
+import { t } from "@/lib/i18n";
 
 /** path → 上次已知磁盘 mtime(ms) */
 const baselines = new Map<string, number>();
@@ -44,9 +45,9 @@ export function useExternalFileWatch(intervalMs = 2000) {
       tab.content = text;
       tab.dirty = false;
       await rememberDiskMtime(tab.path);
-      ElMessage.success(`已重新加载 ${tab.name}`);
+      ElMessage.success(t("msg.reloaded", { name: tab.name }));
     } catch (e) {
-      ElMessage.error(e instanceof Error ? e.message : "重新加载失败");
+      ElMessage.error(e instanceof Error ? e.message : t("msg.reloadFail"));
     }
   }
 
@@ -57,8 +58,8 @@ export function useExternalFileWatch(intervalMs = 2000) {
     prompting.add(key);
     try {
       const body = tab.dirty
-        ? `「${tab.name}」已在外部被修改，且本地有未保存更改。\n重新加载将丢弃本地更改，是否加载磁盘版本？`
-        : `「${tab.name}」已在外部被修改，是否重新加载？`;
+        ? t("msg.externalChangedDirty", { name: tab.name })
+        : t("msg.externalChanged", { name: tab.name });
       let ok = false;
       try {
         ok = await ask(body, { title: "Lunark", kind: "warning" });

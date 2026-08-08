@@ -13,14 +13,17 @@ const BOOT_LANGS = [
   "css",
 ] as const;
 
-const THEME = "one-dark-pro";
+const THEME_DARK = "one-dark-pro";
+const THEME_LIGHT = "github-light";
+
+export type ShikiThemeMode = "dark" | "light";
 
 let highlighterPromise: Promise<Highlighter> | null = null;
 
 function getHighlighter(): Promise<Highlighter> {
   if (!highlighterPromise) {
     highlighterPromise = createHighlighter({
-      themes: [THEME],
+      themes: [THEME_DARK, THEME_LIGHT],
       langs: [...BOOT_LANGS],
     });
   }
@@ -44,9 +47,18 @@ function normalizeLang(lang: string): string {
   return map[key] ?? key;
 }
 
-export async function highlightCode(code: string, lang: string): Promise<string> {
+function themeName(mode: ShikiThemeMode): string {
+  return mode === "light" ? THEME_LIGHT : THEME_DARK;
+}
+
+export async function highlightCode(
+  code: string,
+  lang: string,
+  mode: ShikiThemeMode = "dark",
+): Promise<string> {
   const highlighter = await getHighlighter();
   const normalized = normalizeLang(lang || "text");
+  const theme = themeName(mode);
 
   let useLang = "text";
   const loaded = highlighter.getLoadedLanguages();
@@ -64,12 +76,12 @@ export async function highlightCode(code: string, lang: string): Promise<string>
   try {
     return highlighter.codeToHtml(code, {
       lang: useLang,
-      theme: THEME,
+      theme,
     });
   } catch {
     return highlighter.codeToHtml(code, {
       lang: "text",
-      theme: THEME,
+      theme,
     });
   }
 }

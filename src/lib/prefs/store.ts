@@ -4,8 +4,14 @@ import type { ViewMode } from "@/stores/editor";
 import type { SidebarPanel } from "@/stores/workspace";
 import type { RecentFileEntry } from "@/stores/session";
 import { DEFAULT_THEME_ID, isThemeId, type ThemeId } from "@/lib/theme/catalog";
+import {
+  detectLocale,
+  isLocaleId,
+  type LocaleId,
+} from "@/lib/i18n";
 
 export type { RecentFileEntry };
+export type { LocaleId };
 
 const STORE_FILE = "lunark-prefs.json";
 
@@ -25,8 +31,10 @@ export interface AppPrefs {
   focusMode: boolean;
   typewriterMode: boolean;
   statusBarVisible: boolean;
-  /** 内置主题 id */
+  /** 内置主题 id，或 custom:<slug> */
   themeId: ThemeId;
+  /** UI / 原生菜单语言 */
+  locale: LocaleId;
   lastWorkspacePath: string | null;
   /** 有磁盘路径的打开标签（顺序） */
   sessionTabPaths: string[];
@@ -45,6 +53,7 @@ export const DEFAULT_PREFS: AppPrefs = {
   typewriterMode: false,
   statusBarVisible: true,
   themeId: DEFAULT_THEME_ID,
+  locale: detectLocale(),
   lastWorkspacePath: null,
   sessionTabPaths: [],
   sessionActivePath: null,
@@ -112,44 +121,56 @@ function parsePathList(raw: unknown): string[] {
   return out;
 }
 
+/** 白名单回填（可单测）；忽略旧版多余键 */
+export function normalizePrefs(raw: unknown): AppPrefs {
+  if (!raw || typeof raw !== "object") return { ...DEFAULT_PREFS };
+  const p = raw as Partial<AppPrefs>;
+  return {
+    ...DEFAULT_PREFS,
+    splitRatio:
+      typeof p.splitRatio === "number"
+        ? Math.min(0.8, Math.max(0.2, p.splitRatio))
+        : DEFAULT_PREFS.splitRatio,
+    viewMode:
+      p.viewMode === "source" ||
+      p.viewMode === "split" ||
+      p.viewMode === "hybrid"
+        ? p.viewMode
+        : "hybrid",
+    sidebarVisible:
+      typeof p.sidebarVisible === "boolean"
+        ? p.sidebarVisible
+        : DEFAULT_PREFS.sidebarVisible,
+    sidebarPanel:
+      p.sidebarPanel === "outline" || p.sidebarPanel === "search"
+        ? p.sidebarPanel
+        : "files",
+    scrollSyncEnabled:
+      typeof p.scrollSyncEnabled === "boolean"
+        ? p.scrollSyncEnabled
+        : DEFAULT_PREFS.scrollSyncEnabled,
+    focusMode: p.focusMode === true,
+    typewriterMode: p.typewriterMode === true,
+    statusBarVisible: p.statusBarVisible !== false,
+    themeId: isThemeId(p.themeId) ? (p.themeId as ThemeId) : DEFAULT_THEME_ID,
+    locale: isLocaleId(p.locale) ? p.locale : detectLocale(),
+    lastWorkspacePath:
+      typeof p.lastWorkspacePath === "string" ? p.lastWorkspacePath : null,
+    sessionTabPaths: parsePathList(p.sessionTabPaths),
+    sessionActivePath:
+      typeof p.sessionActivePath === "string" ? p.sessionActivePath : null,
+    recentFiles: parseRecent(p.recentFiles),
+    window: parseWindow(p.window),
+  };
+}
+
 export async function loadPrefs(): Promise<AppPrefs> {
   const store = await getStore();
   if (!store) return { ...DEFAULT_PREFS };
 
   try {
     const raw = await store.get<Partial<AppPrefs>>("prefs");
-    if (!raw || typeof raw !== "object") return { ...DEFAULT_PREFS };
-    return {
-      ...DEFAULT_PREFS,
-      ...raw,
-      splitRatio:
-        typeof raw.splitRatio === "number"
-          ? Math.min(0.8, Math.max(0.2, raw.splitRatio))
-          : DEFAULT_PREFS.splitRatio,
-      viewMode:
-        raw.viewMode === "source" || raw.viewMode === "split"
-          ? raw.viewMode
-          : "hybrid",
-      sidebarPanel:
-        raw.sidebarPanel === "outline" || raw.sidebarPanel === "search"
-          ? raw.sidebarPanel
-          : "files",
-      focusMode: raw.focusMode === true,
-      typewriterMode: raw.typewriterMode === true,
-      statusBarVisible: raw.statusBarVisible !== false,
-      themeId: isThemeId(raw.themeId) ? raw.themeId : DEFAULT_THEME_ID,
-      lastWorkspacePath:
-        typeof raw.lastWorkspacePath === "string"
-          ? raw.lastWorkspacePath
-          : null,
-      sessionTabPaths: parsePathList(raw.sessionTabPaths),
-      sessionActivePath:
-        typeof raw.sessionActivePath === "string"
-          ? raw.sessionActivePath
-          : null,
-      recentFiles: parseRecent(raw.recentFiles),
-      window: parseWindow(raw.window),
-    };
+    return normalizePrefs(raw);
   } catch {
     return { ...DEFAULT_PREFS };
   }

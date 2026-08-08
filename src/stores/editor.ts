@@ -4,6 +4,7 @@ import { EditorView } from "@codemirror/view";
 import { ElMessage } from "element-plus";
 import { useTabsStore } from "@/stores/tabs";
 import { insertTextAtCursor } from "@/lib/editor/insertText";
+import { t, trackLocale } from "@/lib/i18n";
 
 export type ViewMode = "hybrid" | "split" | "source";
 
@@ -44,13 +45,15 @@ export const useEditorStore = defineStore("editor", () => {
   const filePath = computed(() => tabs.activeTab.path);
   const fileName = computed(() => tabs.activeTab.name);
   const modeLabel = computed(() => {
+    // 依赖 locale，切换语言时窗口标题一并更新
+    void trackLocale();
     switch (viewMode.value) {
       case "hybrid":
-        return "混合";
+        return t("shell.modeHybrid");
       case "source":
-        return "源码";
+        return t("shell.modeSource");
       default:
-        return "双栏";
+        return t("shell.modeSplit");
     }
   });
   /** 标签/标题：未保存用 * */
@@ -152,7 +155,7 @@ export const useEditorStore = defineStore("editor", () => {
     // 查找依赖 CM6；混合模式下先切到源码
     if (viewMode.value === "hybrid") {
       viewMode.value = "source";
-      ElMessage.info("查找使用源码视图，已自动切换");
+      ElMessage.info(t("msg.findSwitchedSource"));
     }
     searchOpen.value = true;
     if (opts?.replace) searchReplaceVisible.value = true;

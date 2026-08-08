@@ -23,6 +23,7 @@ import {
 import { fileBasename, readMarkdownFile } from "@/lib/fs/documentIo";
 import { rememberDiskMtime } from "@/composables/useExternalFileWatch";
 import { refreshAppMenu } from "@/lib/appMenu";
+import { getLocale, setLocale, t, type LocaleId } from "@/lib/i18n";
 
 function collectSessionPaths(tabs: ReturnType<typeof useTabsStore>): {
   paths: string[];
@@ -56,6 +57,7 @@ function collectPrefs(
     typewriterMode: editor.typewriterMode,
     statusBarVisible: editor.statusBarVisible,
     themeId: theme.themeId,
+    locale: getLocale(),
     lastWorkspacePath: workspace.rootPath,
     sessionTabPaths: paths,
     sessionActivePath: activePath,
@@ -148,7 +150,8 @@ export function usePrefsPersistence() {
     editor.setFocusMode(prefs.focusMode);
     editor.setTypewriterMode(prefs.typewriterMode);
     editor.setStatusBarVisible(prefs.statusBarVisible);
-    theme.hydrate(prefs.themeId);
+    await theme.hydrate(prefs.themeId);
+    setLocale(prefs.locale);
     workspace.applySidebarPrefs(prefs.sidebarVisible, prefs.sidebarPanel);
     session.setRecent(prefs.recentFiles);
     windowGeo = prefs.window;
@@ -230,6 +233,22 @@ export async function persistRecentNow() {
   await refreshAppMenu();
 }
 
+/** 切换语言并立刻持久化 + 重建原生菜单 */
+export async function persistLocale(locale: LocaleId) {
+  setLocale(locale);
+  const editor = useEditorStore();
+  const workspace = useWorkspaceStore();
+  const tabs = useTabsStore();
+  const session = useSessionStore();
+  const theme = useThemeStore();
+  const prefs = await loadPrefs();
+  await savePrefs({
+    ...collectPrefs(editor, workspace, tabs, session, theme, prefs.window),
+    locale,
+  });
+  await refreshAppMenu();
+}
+
 export function notifyPrefsRestored(
   hadWorkspace: boolean,
   restoredTabs = 0,
@@ -237,10 +256,10 @@ export function notifyPrefsRestored(
   if (restoredTabs > 0) {
     ElMessage.success(
       hadWorkspace
-        ? `已恢复工作区与 ${restoredTabs} 个标签`
-        : `已恢复 ${restoredTabs} 个标签`,
+        ? t("msg.restoredWorkspaceTabs", { n: restoredTabs })
+        : t("msg.restoredTabs", { n: restoredTabs }),
     );
   } else if (hadWorkspace) {
-    ElMessage.success("已恢复上次工作区");
+    ElMessage.success(t("msg.restoredWorkspace"));
   }
 }

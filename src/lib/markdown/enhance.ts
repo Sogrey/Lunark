@@ -50,7 +50,8 @@ export async function enhanceFencedBlocks(html: string): Promise<string> {
       if (!lang) return;
 
       try {
-        const highlighted = await highlightCode(raw, lang);
+        const mode = useThemeStore().isDark ? "dark" : "light";
+        const highlighted = await highlightCode(raw, lang, mode);
         const temp = doc.createElement("div");
         temp.innerHTML = highlighted;
         const shikiPre = temp.querySelector("pre");
