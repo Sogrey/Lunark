@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { nextTick, onMounted, ref, watch } from "vue";
+import { useI18n } from "vue-i18n";
 import { ElMessage } from "element-plus";
 import { useWorkspaceStore } from "@/stores/workspace";
 import { useEditorStore } from "@/stores/editor";
@@ -9,6 +10,7 @@ import {
   type WorkspaceSearchHit,
 } from "@/lib/fs/workspaceSearch";
 
+const { t } = useI18n();
 const workspace = useWorkspaceStore();
 const editor = useEditorStore();
 const { openPathInTab } = useDocumentActions();
@@ -28,11 +30,11 @@ async function runSearch() {
     return;
   }
   if (!workspace.rootPath) {
-    ElMessage.info("请先打开工作区文件夹");
+    ElMessage.info(t("msg.noFolder"));
     return;
   }
   if (workspace.tree.length === 0) {
-    ElMessage.info("工作区中没有 Markdown 文件");
+    ElMessage.info(t("editor.wsNoMd"));
     return;
   }
 
@@ -44,7 +46,7 @@ async function runSearch() {
     });
   } catch (e) {
     hits.value = [];
-    ElMessage.error(e instanceof Error ? e.message : "搜索失败");
+    ElMessage.error(e instanceof Error ? e.message : t("msg.searchFail"));
   } finally {
     searching.value = false;
   }
@@ -92,27 +94,29 @@ defineExpose({ focusInput, runSearch });
         v-model="query"
         class="query"
         type="search"
-        placeholder="在工作区中搜索…"
+        :placeholder="t('editor.wsSearchPlaceholder')"
         autocomplete="off"
         spellcheck="false"
       />
       <label class="opt">
         <input v-model="caseSensitive" type="checkbox" />
-        区分大小写
+        {{ t("editor.matchCase") }}
       </label>
       <button type="submit" class="go" :disabled="searching">
-        {{ searching ? "搜索中…" : "搜索" }}
+        {{ searching ? t("editor.wsSearching") : t("editor.wsSearch") }}
       </button>
     </form>
 
     <p v-if="!workspace.rootPath" class="hint">
-      请先打开文件夹，再搜索其中的 `.md` 内容。
+      {{ t("editor.wsNeedFolder") }}
     </p>
-    <p v-else-if="searching" class="hint">正在扫描…</p>
-    <p v-else-if="searched && hits.length === 0" class="hint">未找到匹配。</p>
+    <p v-else-if="searching" class="hint">{{ t("editor.wsScanning") }}</p>
+    <p v-else-if="searched && hits.length === 0" class="hint">
+      {{ t("editor.wsNoMatch") }}
+    </p>
     <p v-else-if="hits.length > 0" class="hint meta">
-      {{ hits.length }} 处匹配
-      <span v-if="hits.length >= 200">（已截断）</span>
+      {{ t("editor.wsMatchCount", { n: hits.length }) }}
+      <span v-if="hits.length >= 200">{{ t("editor.wsTruncated") }}</span>
     </p>
 
     <ul v-if="hits.length > 0" class="results">

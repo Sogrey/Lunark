@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
+import { useI18n } from "vue-i18n";
 import { useEditorStore } from "@/stores/editor";
 import { extractToc, type TocItem } from "@/lib/markdown/toc";
 
+const { t } = useI18n();
 const editor = useEditorStore();
 
 const toc = computed(() => extractToc(editor.content));
@@ -14,14 +16,14 @@ function onJump(item: TocItem) {
 
 <template>
   <div class="outline">
-    <div v-if="toc.length === 0" class="hint">当前文档没有标题。</div>
+    <div v-if="toc.length === 0" class="hint">{{ t("editor.outlineEmpty") }}</div>
     <button
       v-for="item in toc"
       :key="`${item.line}-${item.id}`"
       type="button"
       class="outline-item"
       :style="{ paddingLeft: `${8 + (item.level - 1) * 12}px` }"
-      :title="`第 ${item.line} 行`"
+      :title="t('editor.outlineLine', { line: item.line })"
       @click="onJump(item)"
     >
       {{ item.text }}

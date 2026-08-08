@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from "vue-i18n";
 import FileTreeNode from "@/components/sidebar/FileTreeNode.vue";
 import OutlinePanel from "@/components/sidebar/OutlinePanel.vue";
 import GlobalSearchPanel from "@/components/sidebar/GlobalSearchPanel.vue";
@@ -6,6 +7,7 @@ import { useWorkspaceStore } from "@/stores/workspace";
 import { useSessionStore } from "@/stores/session";
 import { useDocumentActions } from "@/composables/useDocumentActions";
 
+const { t } = useI18n();
 const workspace = useWorkspaceStore();
 const session = useSessionStore();
 const { openPathInTab, openFolder, refreshFolder, clearRecentFiles } =
@@ -23,7 +25,7 @@ const { openPathInTab, openFolder, refreshFolder, clearRecentFiles } =
         :class="{ active: workspace.sidebarPanel === 'files' }"
         @click="workspace.setSidebarPanel('files')"
       >
-        文件
+        {{ t("shell.files") }}
       </button>
       <button
         type="button"
@@ -33,7 +35,7 @@ const { openPathInTab, openFolder, refreshFolder, clearRecentFiles } =
         :class="{ active: workspace.sidebarPanel === 'outline' }"
         @click="workspace.setSidebarPanel('outline')"
       >
-        大纲
+        {{ t("shell.outline") }}
       </button>
       <button
         type="button"
@@ -44,42 +46,44 @@ const { openPathInTab, openFolder, refreshFolder, clearRecentFiles } =
         title="Ctrl+Shift+F"
         @click="workspace.setSidebarPanel('search')"
       >
-        搜索
+        {{ t("shell.search") }}
       </button>
     </div>
 
     <div v-if="workspace.sidebarPanel === 'files'" class="panel-body">
       <div class="section-head">
         <div class="root-label" :title="workspace.rootPath ?? undefined">
-          {{ workspace.rootName ?? "工作区" }}
+          {{ workspace.rootName ?? t("shell.workspace") }}
         </div>
         <div class="section-actions">
           <button
             type="button"
             class="icon-btn"
-            title="打开文件夹 (Ctrl+Shift+O)"
-            aria-label="打开文件夹"
+            :title="`${t('shell.openFolder')} (Ctrl+Shift+O)`"
+            :aria-label="t('shell.openFolder')"
             @click="openFolder"
           >
-            打开
+            {{ t("shell.openFolder") }}
           </button>
           <button
             type="button"
             class="icon-btn"
-            title="刷新文件树"
-            aria-label="刷新文件树"
+            :title="t('shell.refresh')"
+            :aria-label="t('shell.refresh')"
             :disabled="!workspace.rootPath || workspace.treeLoading"
             @click="refreshFolder"
           >
-            刷新
+            {{ t("shell.refresh") }}
           </button>
         </div>
       </div>
 
-      <div v-if="workspace.treeLoading" class="hint">正在扫描…</div>
+      <div v-if="workspace.treeLoading" class="hint">
+        {{ t("shell.scanning") }}
+      </div>
       <template v-else-if="workspace.rootPath">
         <div v-if="workspace.tree.length === 0" class="hint">
-          此文件夹下没有 Markdown 文件。
+          {{ t("editor.noMdInFolder") }}
         </div>
         <div v-else class="tree">
           <FileTreeNode
@@ -91,21 +95,19 @@ const { openPathInTab, openFolder, refreshFolder, clearRecentFiles } =
           />
         </div>
       </template>
-      <p v-else class="hint">
-        点击「打开」或工具栏「文件夹」选择工作区，列出其中的 `.md` 文件。
-      </p>
+      <p v-else class="hint">{{ t("shell.noWorkspace") }}</p>
 
       <div v-if="session.recentFiles.length > 0" class="recent">
         <div class="recent-head">
-          <span class="recent-title">最近打开</span>
+          <span class="recent-title">{{ t("shell.recentFiles") }}</span>
           <button
             type="button"
             class="icon-btn"
-            title="清除最近打开"
-            aria-label="清除最近打开"
+            :title="t('shell.clearRecent')"
+            :aria-label="t('shell.clearRecent')"
             @click="clearRecentFiles"
           >
-            清除
+            {{ t("shell.clearRecent") }}
           </button>
         </div>
         <button

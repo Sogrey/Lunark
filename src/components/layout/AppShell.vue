@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted } from "vue";
-import MenuChrome from "./MenuChrome.vue";
 import Sidebar from "./Sidebar.vue";
 import StatusBar from "./StatusBar.vue";
 import TabBar from "@/components/editor/TabBar.vue";
@@ -8,6 +7,7 @@ import SearchBar from "@/components/editor/SearchBar.vue";
 import EditorWorkspace from "@/components/editor/EditorWorkspace.vue";
 import EditorContextMenu from "@/components/editor/EditorContextMenu.vue";
 import TableToolbar from "@/components/editor/TableToolbar.vue";
+import HelpDialog from "@/components/layout/HelpDialog.vue";
 import { useEditorStore } from "@/stores/editor";
 import { useWorkspaceStore } from "@/stores/workspace";
 import {
@@ -52,7 +52,6 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app-shell" :class="shellClass">
-    <MenuChrome v-if="!editor.focusMode" />
     <div class="body">
       <Sidebar v-if="workspace.sidebarVisible && !editor.focusMode" />
       <main class="main">
@@ -71,6 +70,7 @@ onBeforeUnmount(() => {
     </div>
     <EditorContextMenu />
     <TableToolbar />
+    <HelpDialog />
   </div>
 </template>
 
