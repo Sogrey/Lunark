@@ -133,11 +133,13 @@
 }
 
 .hybrid-editor .lunark-md-image-source {
+  position: relative;
   display: flex;
   align-items: flex-start;
   gap: 8px;
   margin: 0 0 6px;
-  padding: 6px 8px;
+  padding: 6px 36px 6px 8px;
+  box-sizing: border-box;
   border-radius: 4px;
   background: var(--item-hover-bg-color, rgba(255, 255, 255, 0.04));
   border: 1px solid transparent;
@@ -180,6 +182,44 @@
   color: #fff;
 }
 
+/* 源码条右侧：垃圾桶删除（图片 / 行内公式 / 块级公式 / Mermaid） */
+.hybrid-editor .lunark-md-source-delete {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+  color: var(--control-text-color, #8a9199);
+  background: transparent;
+  line-height: 0;
+}
+
+/* 多行源码条：固定右上角（图片 / 块级公式 / Mermaid） */
+.hybrid-editor .lunark-md-image-source .lunark-md-source-delete,
+.hybrid-editor .lunark-md-preview-source .lunark-md-source-delete {
+  top: 6px;
+  transform: none;
+}
+
+.hybrid-editor .lunark-md-source-delete:hover {
+  color: #fff;
+  background: rgba(200, 48, 48, 0.9);
+}
+
+.hybrid-editor .lunark-md-source-delete:focus-visible {
+  outline: 2px solid var(--primary-color, #5b9bd5);
+  outline-offset: 1px;
+}
+
 /* 行内公式：关掉 Crepe 弹层，改用上一行源码 */
 .milkdown-latex-inline-edit,
 .tippy-box:has(.milkdown-latex-inline-edit),
@@ -190,11 +230,12 @@
 }
 
 .hybrid-editor .lunark-md-math-source {
+  position: relative;
   display: flex;
   width: 100%;
   box-sizing: border-box;
   margin: 0 0 6px;
-  padding: 4px 8px;
+  padding: 4px 36px 4px 8px;
   border-radius: 4px;
   background: var(--item-hover-bg-color, rgba(255, 255, 255, 0.04));
   border: 1px solid transparent;
@@ -225,13 +266,14 @@
 
 /* 块级公式 / Mermaid：选中时上一行源码条（与图片一致）；永久隐藏 Crepe CM */
 .hybrid-editor .lunark-md-preview-source {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
   width: 100%;
   box-sizing: border-box;
   margin: 0 0 8px;
-  padding: 8px 10px;
+  padding: 8px 36px 8px 10px;
   border-radius: 4px;
   background: var(--item-hover-bg-color, rgba(255, 255, 255, 0.04));
   border: 1px solid var(--border-color, #474d54);

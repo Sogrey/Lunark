@@ -2,6 +2,7 @@ import type { Node as PmNode } from "@milkdown/kit/prose/model";
 import { NodeSelection, type EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { t } from "@/lib/i18n";
+import { createTrashDeleteButton, deleteNodeAt } from "./blockDeleteUi";
 import {
   autosizeTextarea,
   bindSourceTextarea,
@@ -45,6 +46,32 @@ function parseImageMarkdown(
   };
 }
 
+/** 删除图片 / image-block 节点，光标落在原位置 */
+export function deleteImageAt(view: EditorView, pos: number) {
+  deleteNodeAt(
+    view,
+    pos,
+    (n) => n.type.name === "image-block" || n.type.name === "image",
+    () => clearImageSourceCache(),
+  );
+}
+
+function imageFingerprint(node: PmNode): string {
+  return `${node.type.name}|${node.attrs.src}|${
+    node.attrs.caption ?? node.attrs.alt ?? ""
+  }|${node.attrs.title ?? ""}`;
+}
+
+function commitImageSource(view: EditorView, pos: number, text: string) {
+  // 源码清空后回车 / 失焦 → 与删除按钮相同
+  if (!text.trim()) {
+    deleteImageAt(view, pos);
+    return;
+  }
+  applyImageMarkdown(view, pos, text);
+}
+
+/** 可解析时更新节点；半成品 / 非法语法跳过（实时预览不删节点） */
 function applyImageMarkdown(view: EditorView, pos: number, text: string) {
   const parsed = parseImageMarkdown(text);
   if (!parsed || !parsed.src) return;
@@ -61,6 +88,7 @@ function applyImageMarkdown(view: EditorView, pos: number, text: string) {
       return;
     }
     view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, next));
+    syncImageCacheAfterDispatch(view, pos);
     return;
   }
 
@@ -79,7 +107,18 @@ function applyImageMarkdown(view: EditorView, pos: number, text: string) {
       return;
     }
     view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, next));
+    syncImageCacheAfterDispatch(view, pos);
   }
+}
+
+/** dispatch 后对齐 cache.pos / fingerprint / pin（与 previewBlock 一致） */
+function syncImageCacheAfterDispatch(view: EditorView, pos: number) {
+  if (!imageCache) return;
+  const latest = view.state.doc.nodeAt(pos);
+  if (!latest) return;
+  imageCache.pos = pos;
+  imageCache.fingerprint = imageFingerprint(latest);
+  if (pinnedImagePos != null) pinnedImagePos = pos;
 }
 
 export function selectedImage(
@@ -109,9 +148,7 @@ export function getOrCreateImageSourceRow(
   pos: number,
   node: PmNode,
 ): HTMLElement {
-  const fingerprint = `${node.type.name}|${node.attrs.src}|${
-    node.attrs.caption ?? node.attrs.alt ?? ""
-  }|${node.attrs.title ?? ""}`;
+  const fingerprint = imageFingerprint(node);
 
   if (
     imageCache &&
@@ -125,6 +162,8 @@ export function getOrCreateImageSourceRow(
       imageCache.input.value = formatImageMarkdown(node);
       imageCache.fingerprint = fingerprint;
       autosizeTextarea(imageCache.input);
+    } else if (document.activeElement === imageCache.input) {
+      imageCache.fingerprint = fingerprint;
     }
     return imageCache.el;
   }
@@ -152,16 +191,23 @@ export function getOrCreateImageSourceRow(
     onPin: (p) => {
       pinnedImagePos = p;
     },
-    onCommit: () => applyImageMarkdown(view, pos, input.value),
+    onCommit: () =>
+      commitImageSource(view, pinnedImagePos ?? pos, input.value),
+    onLiveUpdate: () =>
+      applyImageMarkdown(view, pinnedImagePos ?? pos, input.value),
     onReset: () => {
-      const latest = view.state.doc.nodeAt(pos) ?? node;
+      const latest = view.state.doc.nodeAt(pinnedImagePos ?? pos) ?? node;
       input.value = formatImageMarkdown(latest);
       autosizeTextarea(input);
     },
     enterCommits: true,
   });
 
-  row.append(icon, input);
+  row.append(
+    icon,
+    input,
+    createTrashDeleteButton(() => deleteImageAt(view, pos)),
+  );
   imageCache = {
     pos,
     kind: node.type.name,

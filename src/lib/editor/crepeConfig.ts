@@ -54,26 +54,35 @@ async function uploadImageFile(file: File): Promise<string> {
   return m[1];
 }
 
+/**
+ * Crepe 异步预览必须走 applyPreview；直接返回 HTMLElement 会被 sanitize 成
+ * 当时的字符串快照，后续改 DOM 不会反映到面板上（表现为一直「渲染中」）。
+ */
 function renderMermaidPreview(
   language: string,
   content: string,
-): HTMLElement | null {
+  applyPreview: (value: null | string | HTMLElement) => void,
+): void | null {
   if (language.toLowerCase() !== "mermaid") return null;
-  const wrap = document.createElement("div");
-  wrap.className = "lunark-mermaid-preview";
-  wrap.textContent = t("editor.mermaidRendering");
+  const code = content.trim();
+  if (!code) {
+    applyPreview(null);
+    return null;
+  }
   const mode =
     document.documentElement.getAttribute("data-theme-mode") === "light"
       ? "light"
       : "dark";
-  void renderMermaidSvg(content, mode).then((svg) => {
+  void renderMermaidSvg(code, mode).then((svg) => {
     if (!svg) {
-      wrap.textContent = t("editor.emptyDiagram");
+      applyPreview(
+        `<div class="lunark-mermaid-preview">${t("editor.emptyDiagram")}</div>`,
+      );
       return;
     }
-    wrap.innerHTML = svg;
+    applyPreview(`<div class="lunark-mermaid-preview">${svg}</div>`);
   });
-  return wrap;
+  // undefined → Crepe 显示 previewLoading，完成后再 applyPreview
 }
 
 /**
@@ -133,6 +142,7 @@ export function buildCrepeConfig(defaultValue: string): CrepeConfig {
         previewToggleText: (previewOnly) =>
           previewOnly ? t("editor.edit") : t("editor.preview"),
         previewLabel: t("editor.preview"),
+        previewLoading: t("editor.mermaidRendering"),
         renderPreview: renderMermaidPreview,
       },
       [Crepe.Feature.ImageBlock]: {

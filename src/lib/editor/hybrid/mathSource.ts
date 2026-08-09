@@ -2,6 +2,7 @@ import type { Node as PmNode } from "@milkdown/kit/prose/model";
 import { NodeSelection, type EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { t } from "@/lib/i18n";
+import { createTrashDeleteButton, deleteNodeAt } from "./blockDeleteUi";
 import {
   autosizeTextarea,
   bindSourceTextarea,
@@ -12,18 +13,38 @@ let mathCache: SourceCache | null = null;
 let pinnedMathPos: number | null = null;
 
 function formatInlineMathMarkdown(node: PmNode): string {
-  return `$${String(node.attrs.value ?? "")}$`;
+  const value = String(node.attrs.value ?? "");
+  if (!value.trim()) return "";
+  return `$${value}$`;
 }
 
 function parseInlineMathMarkdown(text: string): string | null {
   const trimmed = text.trim();
-  const m = trimmed.match(/^\$([\s\S]+?)\$$/);
-  if (m) return m[1] ?? "";
+  if (!trimmed || trimmed === "$" || /^\$\s*\$$/.test(trimmed)) return null;
+  const m = trimmed.match(/^\$([\s\S]*?)\$$/);
+  if (m) {
+    const inner = (m[1] ?? "").trim();
+    return inner.length ? inner : null;
+  }
   if (trimmed.length > 0) return trimmed;
   return null;
 }
 
-function applyInlineMathMarkdown(view: EditorView, pos: number, text: string) {
+export function deleteInlineMathAt(view: EditorView, pos: number) {
+  deleteNodeAt(
+    view,
+    pos,
+    (n) => n.type.name === "math_inline",
+    () => clearMathSourceCache(),
+  );
+}
+
+/** 可解析时更新节点；空/半成品跳过（实时预览不删节点） */
+function applyInlineMathMarkdown(
+  view: EditorView,
+  pos: number,
+  text: string,
+) {
   const value = parseInlineMathMarkdown(text);
   if (value == null) return;
   const node = view.state.doc.nodeAt(pos);
@@ -32,6 +53,25 @@ function applyInlineMathMarkdown(view: EditorView, pos: number, text: string) {
   view.dispatch(
     view.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, value }),
   );
+  if (mathCache) {
+    const latest = view.state.doc.nodeAt(pos);
+    mathCache.pos = pos;
+    mathCache.fingerprint = String(latest?.attrs.value ?? value);
+    if (pinnedMathPos != null) pinnedMathPos = pos;
+  }
+}
+
+function commitInlineMathMarkdown(
+  view: EditorView,
+  pos: number,
+  text: string,
+) {
+  const value = parseInlineMathMarkdown(text);
+  if (value == null) {
+    deleteInlineMathAt(view, pos);
+    return;
+  }
+  applyInlineMathMarkdown(view, pos, text);
 }
 
 export function selectedInlineMath(
@@ -67,6 +107,8 @@ export function getOrCreateMathSourceRow(
       mathCache.input.value = formatInlineMathMarkdown(node);
       mathCache.fingerprint = fingerprint;
       autosizeTextarea(mathCache.input);
+    } else if (document.activeElement === mathCache.input) {
+      mathCache.fingerprint = fingerprint;
     }
     return mathCache.el;
   }
@@ -88,16 +130,22 @@ export function getOrCreateMathSourceRow(
     onPin: (p) => {
       pinnedMathPos = p;
     },
-    onCommit: () => applyInlineMathMarkdown(view, pos, input.value),
+    onCommit: () =>
+      commitInlineMathMarkdown(view, pinnedMathPos ?? pos, input.value),
+    onLiveUpdate: () =>
+      applyInlineMathMarkdown(view, pinnedMathPos ?? pos, input.value),
     onReset: () => {
-      const latest = view.state.doc.nodeAt(pos) ?? node;
+      const latest = view.state.doc.nodeAt(pinnedMathPos ?? pos) ?? node;
       input.value = formatInlineMathMarkdown(latest);
       autosizeTextarea(input);
     },
     enterCommits: true,
   });
 
-  row.append(input);
+  row.append(
+    input,
+    createTrashDeleteButton(() => deleteInlineMathAt(view, pos)),
+  );
   mathCache = { pos, kind: "math_inline", fingerprint, el: row, input };
   return row;
 }

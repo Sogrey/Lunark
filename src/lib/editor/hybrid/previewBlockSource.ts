@@ -2,6 +2,7 @@ import type { Node as PmNode } from "@milkdown/kit/prose/model";
 import { NodeSelection, type EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { t } from "@/lib/i18n";
+import { createTrashDeleteButton, deleteNodeAt } from "./blockDeleteUi";
 import { PREVIEW_FIRST_LANGS } from "./constants";
 import {
   autosizeTextarea,
@@ -44,15 +45,18 @@ export function selectedPreviewBlock(
   return null;
 }
 
+function isLatexLang(lang: string): boolean {
+  return (
+    lang === "latex" || lang === "tex" || lang === "math" || lang === "katex"
+  );
+}
+
 function formatPreviewBlockMarkdown(node: PmNode): string {
   const lang = String(node.attrs.language ?? "").toLowerCase();
   const content = node.textContent;
-  if (
-    lang === "latex" ||
-    lang === "tex" ||
-    lang === "math" ||
-    lang === "katex"
-  ) {
+  // 空内容不再包一层 $$，避免残留 $$$$
+  if (!content.trim()) return "";
+  if (isLatexLang(lang)) {
     if (content.includes("\n")) return `$$\n${content}\n$$`;
     return `$$${content}$$`;
   }
@@ -60,21 +64,36 @@ function formatPreviewBlockMarkdown(node: PmNode): string {
   return `\`\`\`${fenceLang}\n${content}\n\`\`\``;
 }
 
-function applyPreviewBlockMarkdown(
-  view: EditorView,
-  pos: number,
-  text: string,
-) {
-  const node = view.state.doc.nodeAt(pos);
-  if (!node || !isPreviewFirstCodeBlock(node)) return;
-
+/** 源码清空或只剩空 $$ / 空围栏 → 整块删除（修 $$$$ 残留） */
+export function isVacantPreviewMarkdown(text: string): boolean {
   const trimmed = text.replace(/\r\n/g, "\n").trim();
-  let lang = String(node.attrs.language ?? "mermaid");
+  if (!trimmed) return true;
+  if (/^\$\$+\s*\$\$$/.test(trimmed)) return true;
+  if (/^\$\$\s*$/.test(trimmed)) return true;
+
+  const fence = trimmed.match(/^```\w*\n([\s\S]*?)\n```$/);
+  if (fence && !(fence[1] ?? "").trim()) return true;
+
+  const dollarBlock = trimmed.match(/^\$\$\n([\s\S]*?)\n\$\$$/);
+  if (dollarBlock && !(dollarBlock[1] ?? "").trim()) return true;
+
+  const dollarInline = trimmed.match(/^\$\$([\s\S]*?)\$\$$/);
+  if (dollarInline && !(dollarInline[1] ?? "").trim()) return true;
+
+  return false;
+}
+
+function parsePreviewMarkdown(
+  text: string,
+  fallbackLang: string,
+): { lang: string; content: string } {
+  const trimmed = text.replace(/\r\n/g, "\n").trim();
+  let lang = fallbackLang;
   let content = trimmed;
 
   const fence = trimmed.match(/^```(\w*)\n([\s\S]*?)\n```$/);
   const dollarBlock = trimmed.match(/^\$\$\n([\s\S]*?)\n\$\$$/);
-  const dollarInline = trimmed.match(/^\$\$([\s\S]+?)\$\$$/);
+  const dollarInline = trimmed.match(/^\$\$([\s\S]*?)\$\$$/);
 
   if (fence) {
     lang = fence[1] || lang;
@@ -87,14 +106,54 @@ function applyPreviewBlockMarkdown(
     content = dollarInline[1] ?? "";
   }
 
+  return { lang, content };
+}
+
+export function deletePreviewBlockAt(view: EditorView, pos: number) {
+  deleteNodeAt(view, pos, isPreviewFirstCodeBlock, () =>
+    clearPreviewBlockSourceCache(),
+  );
+}
+
+function commitPreviewBlockMarkdown(
+  view: EditorView,
+  pos: number,
+  text: string,
+) {
+  if (isVacantPreviewMarkdown(text)) {
+    deletePreviewBlockAt(view, pos);
+    return;
+  }
+  applyPreviewBlockMarkdown(view, pos, text, { deleteIfEmpty: true });
+}
+
+/** 更新代码块正文；实时预览时 deleteIfEmpty=false，避免半成品误删 */
+function applyPreviewBlockMarkdown(
+  view: EditorView,
+  pos: number,
+  text: string,
+  opts: { deleteIfEmpty?: boolean } = {},
+) {
+  const { deleteIfEmpty = true } = opts;
+  const node = view.state.doc.nodeAt(pos);
+  if (!node || !isPreviewFirstCodeBlock(node)) return;
+
+  const fallbackLang = String(node.attrs.language ?? "mermaid");
+  const { lang, content } = parsePreviewMarkdown(text, fallbackLang);
+
+  // 解析后正文为空 → 提交时删整块；实时刷新仅跳过
+  if (!content.trim()) {
+    if (deleteIfEmpty) deletePreviewBlockAt(view, pos);
+    return;
+  }
+
+  if (node.textContent === content && String(node.attrs.language ?? "") === lang) {
+    return;
+  }
+
   const from = pos + 1;
   const to = pos + node.nodeSize - 1;
-  let tr = view.state.tr;
-  if (content) {
-    tr = tr.replaceWith(from, to, view.state.schema.text(content));
-  } else {
-    tr = tr.delete(from, to);
-  }
+  let tr = view.state.tr.replaceWith(from, to, view.state.schema.text(content));
   const mappedPos = tr.mapping.map(pos);
   const current = tr.doc.nodeAt(mappedPos);
   if (current && String(current.attrs.language ?? "") !== lang) {
@@ -103,19 +162,32 @@ function applyPreviewBlockMarkdown(
       language: lang,
     });
   }
-  if (tr.docChanged) view.dispatch(tr);
+  if (!tr.docChanged) return;
+  view.dispatch(tr);
+  if (
+    previewBlockCache &&
+    (previewBlockCache.pos === pos || previewBlockCache.pos === mappedPos)
+  ) {
+    const latest = view.state.doc.nodeAt(mappedPos);
+    if (latest) {
+      previewBlockCache.pos = mappedPos;
+      previewBlockCache.fingerprint = `${String(latest.attrs.language ?? "").toLowerCase()}\n${latest.textContent}`;
+    }
+  }
+}
+
+function liveApplyPreviewBlockMarkdown(
+  view: EditorView,
+  pos: number,
+  text: string,
+) {
+  if (isVacantPreviewMarkdown(text)) return;
+  applyPreviewBlockMarkdown(view, pos, text, { deleteIfEmpty: false });
 }
 
 function previewLabel(lang: string): string {
   if (lang === "mermaid") return "mermaid";
-  if (
-    lang === "latex" ||
-    lang === "tex" ||
-    lang === "math" ||
-    lang === "katex"
-  ) {
-    return "latex";
-  }
+  if (isLatexLang(lang)) return "latex";
   return lang;
 }
 
@@ -135,6 +207,8 @@ export function getOrCreatePreviewBlockSourceRow(
       previewBlockCache.input.value = formatPreviewBlockMarkdown(node);
       previewBlockCache.fingerprint = fingerprint;
       autosizeTextarea(previewBlockCache.input);
+    } else if (document.activeElement === previewBlockCache.input) {
+      previewBlockCache.fingerprint = fingerprint;
     }
     return previewBlockCache.el;
   }
@@ -161,16 +235,33 @@ export function getOrCreatePreviewBlockSourceRow(
     onPin: (p) => {
       pinnedPreviewBlockPos = p;
     },
-    onCommit: () => applyPreviewBlockMarkdown(view, pos, input.value),
+    onCommit: () =>
+      commitPreviewBlockMarkdown(
+        view,
+        pinnedPreviewBlockPos ?? pos,
+        input.value,
+      ),
+    onLiveUpdate: () =>
+      liveApplyPreviewBlockMarkdown(
+        view,
+        pinnedPreviewBlockPos ?? pos,
+        input.value,
+      ),
     onReset: () => {
-      const latest = view.state.doc.nodeAt(pos) ?? node;
+      const latest =
+        view.state.doc.nodeAt(pinnedPreviewBlockPos ?? pos) ?? node;
       input.value = formatPreviewBlockMarkdown(latest);
       autosizeTextarea(input);
     },
     enterCommits: false,
+    liveUpdateMs: 160,
   });
 
-  row.append(label, input);
+  row.append(
+    label,
+    input,
+    createTrashDeleteButton(() => deletePreviewBlockAt(view, pos)),
+  );
   previewBlockCache = {
     pos,
     kind: lang,
