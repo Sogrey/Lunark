@@ -1,13 +1,23 @@
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import {
+  currentMonitor,
+  getCurrentWindow,
+  primaryMonitor,
+} from "@tauri-apps/api/window";
 import { LogicalSize, LogicalPosition } from "@tauri-apps/api/dpi";
 import { isTauri } from "@tauri-apps/api/core";
 import { watch, type WatchStopHandle } from "vue";
 import { useEditorStore } from "@/stores/editor";
 import { useDocumentActions } from "@/composables/useDocumentActions";
 import type { WindowGeometry } from "@/lib/prefs/store";
+import {
+  clampGeometryToWorkArea,
+  defaultGeometryForMode,
+  type WorkAreaLogical,
+} from "@/lib/window/geometry";
 
 /**
  * 窗口标题同步 + 关窗未保存拦截 + 几何恢复/保存。
+ * 首次/恢复时按显示器工作区钳制，避免底边被任务栏挡住。
  */
 export function useWindowLifecycle() {
   const editor = useEditorStore();
@@ -32,16 +42,59 @@ export function useWindowLifecycle() {
     }
   }
 
-  async function restoreGeometry(geo: WindowGeometry | null | undefined) {
-    if (!isTauri() || !geo) return;
+  async function readWorkArea(): Promise<WorkAreaLogical | null> {
     try {
-      const win = getCurrentWindow();
-      if (geo.width && geo.height) {
-        await win.setSize(new LogicalSize(geo.width, geo.height));
+      const monitor = (await currentMonitor()) ?? (await primaryMonitor());
+      if (!monitor) return null;
+      const f = monitor.scaleFactor || 1;
+      return {
+        x: monitor.workArea.position.x / f,
+        y: monitor.workArea.position.y / f,
+        width: monitor.workArea.size.width / f,
+        height: monitor.workArea.size.height / f,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  async function applyGeometry(geo: WindowGeometry) {
+    const win = getCurrentWindow();
+    await win.setSize(new LogicalSize(geo.width, geo.height));
+    if (typeof geo.x === "number" && typeof geo.y === "number") {
+      await win.setPosition(new LogicalPosition(geo.x, geo.y));
+    }
+  }
+
+  /**
+   * 有存档则恢复并钳进工作区；无存档则按当前视图模式给默认尺寸并居中。
+   */
+  async function placeWindow(saved: WindowGeometry | null | undefined) {
+    if (!isTauri()) return;
+    try {
+      const work = await readWorkArea();
+      let geo: WindowGeometry;
+      if (saved?.width && saved?.height) {
+        geo = work
+          ? clampGeometryToWorkArea(saved, work)
+          : {
+              width: saved.width,
+              height: saved.height,
+              x: saved.x,
+              y: saved.y,
+            };
+      } else if (work) {
+        geo = defaultGeometryForMode(editor.viewMode, work);
+      } else {
+        const d = defaultGeometryForMode(editor.viewMode, {
+          x: 0,
+          y: 0,
+          width: 1920,
+          height: 1080,
+        });
+        geo = d;
       }
-      if (typeof geo.x === "number" && typeof geo.y === "number") {
-        await win.setPosition(new LogicalPosition(geo.x, geo.y));
-      }
+      await applyGeometry(geo);
     } catch {
       /* ignore */
     }
@@ -84,7 +137,7 @@ export function useWindowLifecycle() {
     }
 
     onGeometrySave = opts?.onGeometry ?? null;
-    if (opts?.geometry) await restoreGeometry(opts.geometry);
+    await placeWindow(opts?.geometry ?? null);
 
     stopTitle = watch(
       () => editor.windowTitle,
