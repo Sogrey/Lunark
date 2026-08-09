@@ -2,10 +2,12 @@
 #
 # 触发：
 #   - 推送 tag：v*（推荐 v0.1.0）
-#   - Actions 页手动 Run workflow（可填 tag，默认用 tauri.conf 版本）
+#   - Actions 页手动 Run workflow（可填 tag，默认用 package 版本）
+#
+# 先单独创建/复用 Release，再矩阵上传，避免多 job 抢建 Release 竞态。
 #
 # 仓库设置：Settings → Actions → General → Workflow permissions
-#   勾选 “Read and write permissions”（否则无法写 Release）
+#   勾选 “Read and write permissions”
 
 name: release
 
@@ -29,7 +31,98 @@ permissions:
   contents: write
 
 jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+      release_id: ${{ steps.ensure.outputs.result }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Resolve release tag
+        id: meta
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag_name }}"
+            if [ -z "$TAG" ]; then
+              VER=$(node -p "require('./package.json').version")
+              TAG="v${VER}"
+            fi
+            PRE="${{ inputs.prerelease }}"
+          else
+            TAG="${{ github.ref_name }}"
+            PRE="true"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "prerelease=${PRE}" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag=${TAG} prerelease=${PRE}"
+
+      - name: Ensure GitHub Release exists
+        id: ensure
+        uses: actions/github-script@v7
+        env:
+          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
+          PRERELEASE: ${{ steps.meta.outputs.prerelease }}
+        with:
+          script: |
+            const tag = process.env.RELEASE_TAG;
+            const prerelease = process.env.PRERELEASE === 'true';
+            const { owner, repo } = context.repo;
+            const body = [
+              `## Lunark ${tag}`,
+              '',
+              '多平台安装包（**暂未代码签名 / 未 Apple 公证**）。',
+              '',
+              '| 平台 | 产物 |',
+              '|---|---|',
+              '| Windows | NSIS `.exe` |',
+              '| macOS | `.dmg`（Arm / Intel 各一份；Gatekeeper 可能提示「无法验证开发者」） |',
+              '| Linux | `.AppImage` + `.deb` |',
+              '',
+              '### 内测说明',
+              '- Windows：若 SmartScreen 拦截，选「仍要运行」',
+              '- macOS：若无法打开，可右键 → 打开，或在「系统设置 → 隐私与安全性」允许',
+              '- Linux：`chmod +x *.AppImage` 后运行',
+            ].join('\n');
+
+            let release;
+            try {
+              ({ data: release } = await github.rest.repos.getReleaseByTag({
+                owner,
+                repo,
+                tag,
+              }));
+              core.info(`Reusing existing release id=${release.id} tag=${tag}`);
+              await github.rest.repos.updateRelease({
+                owner,
+                repo,
+                release_id: release.id,
+                name: `Lunark ${tag}`,
+                body,
+                draft: false,
+                prerelease,
+              });
+            } catch (e) {
+              if (e.status !== 404) throw e;
+              ({ data: release } = await github.rest.repos.createRelease({
+                owner,
+                repo,
+                tag_name: tag,
+                name: `Lunark ${tag}`,
+                body,
+                draft: false,
+                prerelease,
+              }));
+              core.info(`Created release id=${release.id} tag=${tag}`);
+            }
+            return release.id;
+
   publish-tauri:
+    needs: create-release
     strategy:
       fail-fast: false
       matrix:
@@ -87,55 +180,18 @@ jobs:
       - name: Install frontend dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Resolve release tag
-        id: meta
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ inputs.tag_name }}"
-            if [ -z "$TAG" ]; then
-              VER=$(node -p "require('./package.json').version")
-              TAG="v${VER}"
-            fi
-            PRE="${{ inputs.prerelease }}"
-          else
-            TAG="${{ github.ref_name }}"
-            PRE="true"
-          fi
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "prerelease=${PRE}" >> "$GITHUB_OUTPUT"
-          echo "Resolved tag=${TAG} prerelease=${PRE}"
-
       - name: Build and upload to GitHub Release
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ steps.meta.outputs.tag }}
-          releaseName: "Lunark ${{ steps.meta.outputs.tag }}"
-          releaseBody: |
-            ## Lunark ${{ steps.meta.outputs.tag }}
-
-            多平台安装包（**暂未代码签名 / 未 Apple 公证**）。
-
-            | 平台 | 产物 |
-            |---|---|
-            | Windows | NSIS `.exe` |
-            | macOS | `.dmg`（Arm / Intel 各一份；Gatekeeper 可能提示「无法验证开发者」） |
-            | Linux | `.AppImage` + `.deb` |
-
-            ### 内测说明
-            - Windows：若 SmartScreen 拦截，选「仍要运行」
-            - macOS：若无法打开，可右键 → 打开，或在「系统设置 → 隐私与安全性」允许
-            - Linux：`chmod +x *.AppImage` 后运行
-          releaseDraft: false
-          prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
+          releaseId: ${{ needs.create-release.outputs.release_id }}
           args: ${{ matrix.args }}
 
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: lunark-${{ matrix.name }}-${{ steps.meta.outputs.tag }}
+          name: lunark-${{ matrix.name }}-${{ needs.create-release.outputs.tag }}
           path: |
             src-tauri/target/**/release/bundle/nsis/*
             src-tauri/target/**/release/bundle/dmg/*
