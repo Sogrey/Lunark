@@ -36,17 +36,22 @@ export default defineConfig(async () => ({
     },
   },
   build: {
+    // 桌面端单包体积偏大（Mermaid/Shiki/Crepe）属预期；500kB 告警噪声可忽略
+    chunkSizeWarningLimit: 1500,
     rollupOptions: {
       output: {
         manualChunks: {
+          // 已去掉聚合包 `codemirror`，只拆实际依赖的 @codemirror/*
           codemirror: [
-            "codemirror",
             "@codemirror/lang-markdown",
             "@codemirror/language",
+            "@codemirror/language-data",
             "@codemirror/state",
             "@codemirror/view",
             "@codemirror/commands",
             "@codemirror/search",
+            "@codemirror/autocomplete",
+            "@codemirror/theme-one-dark",
           ],
           mermaid: ["mermaid"],
           shiki: ["shiki"],
