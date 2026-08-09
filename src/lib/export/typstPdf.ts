@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { dirname, join } from "@tauri-apps/api/path";
+import { dirname, join, tempDir } from "@tauri-apps/api/path";
 import { mkdir, remove, writeFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import { clearMermaidCache, renderMermaidSvg } from "@/lib/markdown/mermaid";
 
@@ -91,7 +91,6 @@ export async function prepareTypstMarkdown(
   if (docPath) {
     resourceDir = await dirname(docPath);
   } else {
-    const { tempDir } = await import("@tauri-apps/api/path");
     resourceDir = await tempDir();
   }
 

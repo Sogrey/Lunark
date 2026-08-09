@@ -82,33 +82,47 @@ function escapeHtml(text: string): string {
     .replace(/>/g, "&gt;");
 }
 
-export async function renderMermaidSvg(
+/** Mermaid 并发 render 易卡死，串行化所有渲染请求 */
+let renderChain: Promise<unknown> = Promise.resolve();
+
+export function renderMermaidSvg(
   source: string,
   mode: MermaidThemeMode = "dark",
 ): Promise<string> {
   const code = source.trim();
-  if (!code) return "";
+  if (!code) return Promise.resolve("");
 
   const cacheKey = `${mode}::${code}`;
   const cached = svgCache.get(cacheKey);
-  if (cached) return cached;
+  if (cached) return Promise.resolve(cached);
 
-  ensureInit(mode);
-  const id = `lunark-mermaid-${++renderSeq}`;
+  const run = async (): Promise<string> => {
+    const again = svgCache.get(cacheKey);
+    if (again) return again;
 
-  try {
-    const { svg } = await mermaid.render(id, code);
-    svgCache.set(cacheKey, svg);
-    if (svgCache.size > 80) {
-      const first = svgCache.keys().next().value;
-      if (first) svgCache.delete(first);
+    ensureInit(mode);
+    const id = `lunark-mermaid-${++renderSeq}`;
+    try {
+      const { svg } = await mermaid.render(id, code);
+      svgCache.set(cacheKey, svg);
+      if (svgCache.size > 80) {
+        const first = svgCache.keys().next().value;
+        if (first) svgCache.delete(first);
+      }
+      return svg;
+    } catch (e) {
+      document.getElementById(id)?.remove();
+      const message = e instanceof Error ? e.message : String(e);
+      return `<pre class="mermaid-error">${escapeHtml(t("msg.mermaidFail"))}\n${escapeHtml(message)}\n\n${escapeHtml(code)}</pre>`;
     }
-    return svg;
-  } catch (e) {
-    document.getElementById(id)?.remove();
-    const message = e instanceof Error ? e.message : String(e);
-    return `<pre class="mermaid-error">${escapeHtml(t("msg.mermaidFail"))}\n${escapeHtml(message)}\n\n${escapeHtml(code)}</pre>`;
-  }
+  };
+
+  const result = renderChain.then(run, run);
+  renderChain = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
 }
 
 /** 主题或消毒策略变更后可调用，避免命中旧（无文字）缓存 */

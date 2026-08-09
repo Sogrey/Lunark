@@ -1,5 +1,6 @@
 import { onMounted, onUnmounted, watch } from "vue";
 import { isTauri } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ElMessage } from "element-plus";
 import { useEditorStore } from "@/stores/editor";
 import { useWorkspaceStore } from "@/stores/workspace";
@@ -54,8 +55,12 @@ const MENU_EVENTS = [
 const recentActions = new Map<string, number>();
 function once(actionId: string, fn: () => void, windowMs = 250) {
   const now = Date.now();
-  const prev = recentActions.get(actionId) ?? 0;
-  if (now - prev < windowMs) return;
+  // 先清过期项，避免长会话 Map 只增不减（R-05）
+  for (const [key, at] of recentActions) {
+    if (now - at >= windowMs) recentActions.delete(key);
+  }
+  const prev = recentActions.get(actionId);
+  if (prev != null && now - prev < windowMs) return;
   recentActions.set(actionId, now);
   fn();
 }
@@ -134,7 +139,6 @@ export function useMenuBridge() {
       return;
     }
     try {
-      const { getCurrentWindow } = await import("@tauri-apps/api/window");
       await getCurrentWindow().destroy();
     } catch (e) {
       console.warn("[lunark] quit failed", e);
