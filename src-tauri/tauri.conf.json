@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Lunark",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "com.lunark.app",
   "build": {
     "beforeDevCommand": "pnpm dev",
@@ -25,7 +25,10 @@
       "assetProtocol": {
         "enable": true,
         "scope": {
-          "allow": ["**", "**/*"],
+          "allow": [
+            "**",
+            "**/*"
+          ],
           "requireLiteralLeadingDot": false
         }
       }
@@ -33,7 +36,13 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "dmg", "app", "appimage", "deb"],
+    "targets": [
+      "nsis",
+      "dmg",
+      "app",
+      "appimage",
+      "deb"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
