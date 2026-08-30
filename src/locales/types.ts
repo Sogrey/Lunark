@@ -118,6 +118,8 @@ export type MessageSchema = {
     openDocsAria: string;
     closeTab: string;
     closeTabNamed: string;
+    scrollTabsLeft: string;
+    scrollTabsRight: string;
     previewEmpty: string;
     noMdInFolder: string;
     outlineEmpty: string;
@@ -280,6 +282,7 @@ export type MessageSchema = {
     imagePasteFail: string;
     imageInsertFail: string;
     noImageRecognized: string;
+    noDropFileRecognized: string;
     saveDocBeforeImage: string;
     imageOnly: string;
     docUnsaved: string;

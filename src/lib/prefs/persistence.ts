@@ -61,6 +61,7 @@ function collectPrefs(
     lastWorkspacePath: workspace.rootPath,
     sessionTabPaths: paths,
     sessionActivePath: activePath,
+    welcomeSeenVersion: tabs.welcomeSeenVersion,
     recentFiles: session.recentFiles.map((r) => ({ ...r })),
     window: windowGeo,
   };
@@ -167,6 +168,8 @@ export function usePrefsPersistence() {
       prefs.sessionActivePath,
     );
 
+    tabs.applyWelcomePolicy(prefs.welcomeSeenVersion);
+
     ready = true;
 
     stopWatch = watch(
@@ -183,6 +186,7 @@ export function usePrefsPersistence() {
           workspace.sidebarPanel,
           workspace.rootPath,
           tabs.activeId,
+          tabs.welcomeSeenVersion,
           tabs.tabs.map((t) => t.path).join("\0"),
           session.recentFiles.map((r) => r.path).join("\0"),
         ] as const,

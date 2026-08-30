@@ -66,15 +66,13 @@ function onDrop(event: DragEvent) {
 }
 
 onMounted(() => {
-  void bindTauriFileDrop({
+  unbindDrop = bindTauriFileDrop({
     onOver: () => {
       dropActive.value = true;
     },
     onLeave: () => {
       dropActive.value = false;
     },
-  }).then((unlisten) => {
-    unbindDrop = unlisten;
   });
 });
 

@@ -17,8 +17,14 @@ export function fileBasename(path: string): string {
   return parts[parts.length - 1] || path;
 }
 
+const MD_EXT = /\.(md|markdown|mdown|mkd)$/i;
+
+export function isMarkdownPath(path: string): boolean {
+  return MD_EXT.test(path);
+}
+
 export function ensureMdExtension(path: string): string {
-  if (/\.(md|markdown|mdown|mkd)$/i.test(path)) return path;
+  if (isMarkdownPath(path)) return path;
   return `${path}.md`;
 }
 

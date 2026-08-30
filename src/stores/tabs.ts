@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import welcome from "@/assets/welcome.md?raw";
+import { APP_VERSION } from "@/lib/help/credits";
 
 export interface DocTab {
   id: string;
@@ -10,6 +11,8 @@ export interface DocTab {
   dirty: boolean;
 }
 
+export const WELCOME_TAB_NAME = "Welcome.md";
+
 function createId(): string {
   return crypto.randomUUID();
 }
@@ -18,16 +21,32 @@ function createWelcomeTab(): DocTab {
   return {
     id: createId(),
     path: null,
-    name: "Welcome.md",
+    name: WELCOME_TAB_NAME,
     content: welcome,
     dirty: false,
   };
+}
+
+function createUntitledTab(): DocTab {
+  return {
+    id: createId(),
+    path: null,
+    name: "Untitled.md",
+    content: "",
+    dirty: false,
+  };
+}
+
+export function isWelcomeTab(tab: DocTab | undefined | null): boolean {
+  return !!tab && !tab.path && tab.name === WELCOME_TAB_NAME;
 }
 
 export const useTabsStore = defineStore("tabs", () => {
   const initial = createWelcomeTab();
   const tabs = ref<DocTab[]>([initial]);
   const activeId = ref(initial.id);
+  /** 当前版本是否已关闭过 Welcome（与 prefs.welcomeSeenVersion 同步） */
+  const welcomeSeenVersion = ref<string | null>(null);
 
   const activeTab = computed(() => {
     const found = tabs.value.find((t) => t.id === activeId.value);
@@ -36,6 +55,10 @@ export const useTabsStore = defineStore("tabs", () => {
 
   const activeIndex = computed(() =>
     tabs.value.findIndex((t) => t.id === activeId.value),
+  );
+
+  const shouldShowWelcome = computed(
+    () => welcomeSeenVersion.value !== APP_VERSION,
   );
 
   function setActiveContent(value: string, markDirty = true) {
@@ -54,6 +77,46 @@ export const useTabsStore = defineStore("tabs", () => {
     }
   }
 
+  function markWelcomeDismissed() {
+    welcomeSeenVersion.value = APP_VERSION;
+  }
+
+  /** 启动恢复后：按版本决定是否展示 / 移除 Welcome */
+  function applyWelcomePolicy(seenVersion: string | null) {
+    welcomeSeenVersion.value = seenVersion;
+
+    if (seenVersion === APP_VERSION) {
+      const kept = tabs.value.filter((t) => !isWelcomeTab(t) || t.dirty);
+      tabs.value = kept;
+      if (tabs.value.length === 0) {
+        const untitled = createUntitledTab();
+        tabs.value.push(untitled);
+        activeId.value = untitled.id;
+        return;
+      }
+      if (!tabs.value.some((t) => t.id === activeId.value)) {
+        activeId.value = tabs.value[0]!.id;
+      }
+      return;
+    }
+
+    let welcomeTab = tabs.value.find((t) => isWelcomeTab(t));
+    if (!welcomeTab) {
+      welcomeTab = createWelcomeTab();
+      tabs.value.unshift(welcomeTab);
+    }
+    activeId.value = welcomeTab.id;
+  }
+
+  function fillEmpty() {
+    if (tabs.value.length > 0) return;
+    const tab = shouldShowWelcome.value
+      ? createWelcomeTab()
+      : createUntitledTab();
+    tabs.value.push(tab);
+    activeId.value = tab.id;
+  }
+
   /** 若已有同 path 的 Tab 则激活；否则新建并激活。返回 tab id */
   function openOrFocus(path: string | null, name: string, content: string): string {
     if (path) {
@@ -68,10 +131,8 @@ export const useTabsStore = defineStore("tabs", () => {
     if (path) {
       const welcomeOnly =
         tabs.value.length === 1 &&
-        tabs.value[0] &&
-        !tabs.value[0].path &&
-        tabs.value[0].name === "Welcome.md" &&
-        !tabs.value[0].dirty;
+        isWelcomeTab(tabs.value[0]) &&
+        !tabs.value[0]!.dirty;
       if (welcomeOnly) {
         const tab = tabs.value[0]!;
         tab.path = path;
@@ -105,13 +166,16 @@ export const useTabsStore = defineStore("tabs", () => {
     const index = tabs.value.findIndex((t) => t.id === id);
     if (index < 0) return false;
 
+    const closing = tabs.value[index]!;
+    if (isWelcomeTab(closing)) {
+      markWelcomeDismissed();
+    }
+
     const wasActive = activeId.value === id;
     tabs.value.splice(index, 1);
 
     if (tabs.value.length === 0) {
-      const welcomeTab = createWelcomeTab();
-      tabs.value.push(welcomeTab);
-      activeId.value = welcomeTab.id;
+      fillEmpty();
       return true;
     }
 
@@ -123,13 +187,7 @@ export const useTabsStore = defineStore("tabs", () => {
   }
 
   function newUntitled() {
-    const tab: DocTab = {
-      id: createId(),
-      path: null,
-      name: "Untitled.md",
-      content: "",
-      dirty: false,
-    };
+    const tab = createUntitledTab();
     tabs.value.push(tab);
     activeId.value = tab.id;
   }
@@ -153,6 +211,8 @@ export const useTabsStore = defineStore("tabs", () => {
     activeId,
     activeTab,
     activeIndex,
+    welcomeSeenVersion,
+    shouldShowWelcome,
     setActiveContent,
     markActiveSaved,
     activate,
@@ -162,5 +222,7 @@ export const useTabsStore = defineStore("tabs", () => {
     updateActiveMeta,
     closeTab,
     newUntitled,
+    applyWelcomePolicy,
+    markWelcomeDismissed,
   };
 });

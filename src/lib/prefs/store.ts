@@ -39,6 +39,11 @@ export interface AppPrefs {
   /** 有磁盘路径的打开标签（顺序） */
   sessionTabPaths: string[];
   sessionActivePath: string | null;
+  /**
+   * 已关闭过 Welcome 介绍页的应用版本号。
+   * 与当前 version 不同（含首次 null）时再展示一次。
+   */
+  welcomeSeenVersion: string | null;
   recentFiles: RecentFileEntry[];
   window: WindowGeometry | null;
 }
@@ -57,6 +62,7 @@ export const DEFAULT_PREFS: AppPrefs = {
   lastWorkspacePath: null,
   sessionTabPaths: [],
   sessionActivePath: null,
+  welcomeSeenVersion: null,
   recentFiles: [],
   window: null,
 };
@@ -159,6 +165,10 @@ export function normalizePrefs(raw: unknown): AppPrefs {
     sessionTabPaths: parsePathList(p.sessionTabPaths),
     sessionActivePath:
       typeof p.sessionActivePath === "string" ? p.sessionActivePath : null,
+    welcomeSeenVersion:
+      typeof p.welcomeSeenVersion === "string" && p.welcomeSeenVersion
+        ? p.welcomeSeenVersion
+        : null,
     recentFiles: parseRecent(p.recentFiles),
     window: parseWindow(p.window),
   };

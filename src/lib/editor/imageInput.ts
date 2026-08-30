@@ -2,9 +2,12 @@ import { EditorView } from "@codemirror/view";
 import { ElMessage } from "element-plus";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { useDocumentActions } from "@/composables/useDocumentActions";
 import { useEditorStore } from "@/stores/editor";
+import { isMarkdownPath } from "@/lib/fs/documentIo";
 import {
   isImageFile,
+  isImagePath,
   saveDroppedImages,
   saveImagesFromPaths,
 } from "@/lib/fs/imageDrop";
@@ -109,32 +112,87 @@ export async function insertImagesFromOsPaths(
 }
 
 /**
- * 监听 Tauri 原生文件拖放。返回取消监听函数。
- * 回调用于更新 drop 高亮状态。
+ * 处理系统拖入的文件路径：Markdown 打开为 Tab，图片插入当前文档。
  */
-export async function bindTauriFileDrop(opts: {
+export async function handleOsFileDrop(paths: string[]): Promise<void> {
+  if (paths.length === 0) return;
+
+  const mdPaths = paths.filter(isMarkdownPath);
+  const imagePaths = paths.filter(isImagePath);
+
+  if (mdPaths.length > 0) {
+    const { openPathInTab } = useDocumentActions();
+    for (const path of mdPaths) {
+      await openPathInTab(path);
+    }
+  }
+
+  if (imagePaths.length > 0) {
+    await insertImagesFromOsPaths(imagePaths);
+    return;
+  }
+
+  if (mdPaths.length === 0) {
+    ElMessage.info(t("msg.noDropFileRecognized"));
+  }
+}
+
+type DropHighlight = {
   onOver?: () => void;
   onLeave?: () => void;
-}): Promise<() => void> {
+};
+
+/** 单例监听：避免切 Tab / HMR 泄漏多个 onDragDropEvent 导致连弹 tips */
+const highlightSubs = new Set<DropHighlight>();
+let tauriUnlisten: (() => void) | null = null;
+let bindPromise: Promise<void> | null = null;
+
+function notifyOver() {
+  for (const sub of highlightSubs) sub.onOver?.();
+}
+
+function notifyLeave() {
+  for (const sub of highlightSubs) sub.onLeave?.();
+}
+
+async function ensureTauriDropListener(): Promise<void> {
+  if (!isTauri() || tauriUnlisten) return;
+  if (bindPromise) return bindPromise;
+
+  bindPromise = (async () => {
+    try {
+      tauriUnlisten = await getCurrentWebview().onDragDropEvent((event) => {
+        const { type } = event.payload;
+        if (type === "over" || type === "enter") {
+          notifyOver();
+        } else if (type === "leave") {
+          notifyLeave();
+        } else if (type === "drop") {
+          notifyLeave();
+          void handleOsFileDrop(event.payload.paths);
+        }
+      });
+    } catch (e) {
+      console.warn("[lunark] bindTauriFileDrop failed", e);
+      bindPromise = null;
+    }
+  })();
+
+  return bindPromise;
+}
+
+/**
+ * 订阅拖放高亮；Tauri listener 全局单例。
+ * 同步返回取消函数，避免 onMounted 异步竞态泄漏订阅。
+ */
+export function bindTauriFileDrop(opts: DropHighlight): () => void {
   if (!isTauri()) return () => undefined;
 
-  try {
-    const unlisten = await getCurrentWebview().onDragDropEvent((event) => {
-      const { type } = event.payload;
-      if (type === "over" || type === "enter") {
-        opts.onOver?.();
-      } else if (type === "leave") {
-        opts.onLeave?.();
-      } else if (type === "drop") {
-        opts.onLeave?.();
-        void insertImagesFromOsPaths(event.payload.paths);
-      }
-    });
-    return unlisten;
-  } catch (e) {
-    console.warn("[lunark] bindTauriFileDrop failed", e);
-    return () => undefined;
-  }
+  highlightSubs.add(opts);
+  void ensureTauriDropListener();
+  return () => {
+    highlightSubs.delete(opts);
+  };
 }
 
 /**

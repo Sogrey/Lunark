@@ -1,6 +1,9 @@
 /**
  * 按 package.json 的 version 打 annotated tag 并推送到 origin。
- * 同步 src-tauri/tauri.conf.json 与 Cargo.toml 版本，避免安装包版本与 tag 不一致。
+ * 同步 src-tauri 侧版本，避免安装包 / About / tag 不一致：
+ *   - src-tauri/tauri.conf.json
+ *   - src-tauri/Cargo.toml
+ *   - src-tauri/Cargo.lock（package tauri-app）
  *
  * 用法：pnpm release:tag
  * 环境：RELEASE_TAG_SKIP_PUSH=1 只打本地 tag 不推送
@@ -12,6 +15,12 @@ import { dirname, join } from "node:path";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const skipPush = process.env.RELEASE_TAG_SKIP_PUSH === "1";
+
+const VERSION_FILES = [
+  "src-tauri/tauri.conf.json",
+  "src-tauri/Cargo.toml",
+  "src-tauri/Cargo.lock",
+];
 
 function readJson(rel) {
   return JSON.parse(readFileSync(join(root, rel), "utf8"));
@@ -46,14 +55,16 @@ if (!/^\d+\.\d+\.\d+([.-].+)?$/.test(version)) {
 }
 
 const tag = `v${version}`;
-console.log(`[release:tag] version=${version} tag=${tag}`);
+console.log(`[release:tag] version=${version} tag=${tag} (from package.json)`);
+
+const synced = [];
 
 const tauriPath = "src-tauri/tauri.conf.json";
 const tauri = readJson(tauriPath);
 if (tauri.version !== version) {
   tauri.version = version;
   writeJson(tauriPath, tauri);
-  console.log(`[release:tag] synced ${tauriPath} → ${version}`);
+  synced.push(tauriPath);
 }
 
 const cargoPath = "src-tauri/Cargo.toml";
@@ -64,7 +75,32 @@ const cargoNext = cargoRaw.replace(
 );
 if (cargoNext !== cargoRaw) {
   writeFileSync(join(root, cargoPath), cargoNext, "utf8");
-  console.log(`[release:tag] synced ${cargoPath} → ${version}`);
+  synced.push(cargoPath);
+}
+
+const lockPath = "src-tauri/Cargo.lock";
+const lockRaw = readFileSync(join(root, lockPath), "utf8");
+const lockNext = lockRaw.replace(
+  /(name = "tauri-app"\r?\n)version = "[^"]*"/,
+  `$1version = "${version}"`,
+);
+if (lockNext === lockRaw) {
+  if (!/name = "tauri-app"\r?\nversion = /.test(lockRaw)) {
+    console.error(
+      `[release:tag] could not find package tauri-app in ${lockPath}`,
+    );
+    process.exit(1);
+  }
+} else {
+  writeFileSync(join(root, lockPath), lockNext, "utf8");
+  synced.push(lockPath);
+}
+
+for (const f of synced) {
+  console.log(`[release:tag] synced ${f} → ${version}`);
+}
+if (synced.length === 0) {
+  console.log("[release:tag] tauri / cargo versions already match package.json");
 }
 
 const dirty = git("status", "--porcelain");
@@ -74,7 +110,7 @@ if (dirty) {
     .filter(Boolean)
     .every((line) => {
       const f = line.slice(3).trim().replace(/\\/g, "/");
-      return f === tauriPath || f === cargoPath;
+      return VERSION_FILES.includes(f);
     });
   if (!onlyVersion) {
     console.error(
@@ -83,7 +119,7 @@ if (dirty) {
     );
     process.exit(1);
   }
-  git("add", tauriPath, cargoPath);
+  git("add", ...VERSION_FILES);
   git("commit", "-m", `chore: bump version to ${version}`);
   console.log(`[release:tag] committed version bump`);
 }

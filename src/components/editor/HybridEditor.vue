@@ -215,15 +215,13 @@ function scheduleTypewriter() {
 onMounted(() => {
   void mountCrepe();
   document.addEventListener("selectionchange", scheduleTypewriter);
-  void bindTauriFileDrop({
+  unbindDrop = bindTauriFileDrop({
     onOver: () => {
       dropActive.value = true;
     },
     onLeave: () => {
       dropActive.value = false;
     },
-  }).then((unlisten) => {
-    unbindDrop = unlisten;
   });
 });
 

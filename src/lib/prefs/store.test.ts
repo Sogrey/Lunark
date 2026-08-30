@@ -33,4 +33,10 @@ describe("normalizePrefs", () => {
     const p = normalizePrefs({ themeId: "no-such-theme" });
     expect(p.themeId).toBe(DEFAULT_PREFS.themeId);
   });
+
+  it("keeps welcomeSeenVersion string", () => {
+    const p = normalizePrefs({ welcomeSeenVersion: "0.1.2" });
+    expect(p.welcomeSeenVersion).toBe("0.1.2");
+    expect(normalizePrefs({}).welcomeSeenVersion).toBeNull();
+  });
 });

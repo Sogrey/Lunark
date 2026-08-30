@@ -1,0 +1,9 @@
+# 单包仓库；pnpm 11+ 配置放此处（不再读 package.json#pnpm）
+packages:
+  - .
+
+engineStrict: true
+autoInstallPeers: true
+
+allowBuilds:
+  esbuild: true
