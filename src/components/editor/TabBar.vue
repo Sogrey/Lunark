@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  computed,
   nextTick,
   onBeforeUnmount,
   onMounted,
@@ -12,14 +13,42 @@ import { useDocumentActions } from "@/composables/useDocumentActions";
 
 const { t } = useI18n();
 const tabs = useTabsStore();
-const { closeTab, newFile } = useDocumentActions();
+const {
+  closeTab,
+  closeTabsToTheRight,
+  closeOtherTabs,
+  closeAllTabs,
+  newFile,
+} = useDocumentActions();
 
 const scrollRef = ref<HTMLElement | null>(null);
 const overflow = ref(false);
 const canScrollLeft = ref(false);
 const canScrollRight = ref(false);
 
+const menuOpen = ref(false);
+const menuX = ref(0);
+const menuY = ref(0);
+const menuTabId = ref<string | null>(null);
+
 const SCROLL_STEP = 160;
+
+const menuStyle = computed(() => ({
+  left: `${menuX.value}px`,
+  top: `${menuY.value}px`,
+}));
+
+const menuTabIndex = computed(() =>
+  menuTabId.value
+    ? tabs.tabs.findIndex((tab) => tab.id === menuTabId.value)
+    : -1,
+);
+
+const canCloseRight = computed(
+  () => menuTabIndex.value >= 0 && menuTabIndex.value < tabs.tabs.length - 1,
+);
+
+const canCloseOthers = computed(() => tabs.tabs.length > 1);
 
 function onSelect(id: string) {
   tabs.activate(id);
@@ -28,6 +57,37 @@ function onSelect(id: string) {
 function onClose(e: MouseEvent, id: string) {
   e.stopPropagation();
   void closeTab(id);
+}
+
+function closeMenu() {
+  menuOpen.value = false;
+  menuTabId.value = null;
+}
+
+function placeMenu(clientX: number, clientY: number) {
+  const pad = 8;
+  const mw = 200;
+  const mh = 160;
+  menuX.value = Math.min(clientX, window.innerWidth - mw - pad);
+  menuY.value = Math.min(clientY, window.innerHeight - mh - pad);
+  menuX.value = Math.max(pad, menuX.value);
+  menuY.value = Math.max(pad, menuY.value);
+}
+
+function onTabContextMenu(e: MouseEvent, id: string) {
+  e.preventDefault();
+  e.stopPropagation();
+  tabs.activate(id);
+  menuTabId.value = id;
+  placeMenu(e.clientX, e.clientY);
+  menuOpen.value = true;
+}
+
+async function runMenu(action: (id: string) => Promise<void> | void) {
+  const id = menuTabId.value;
+  closeMenu();
+  if (!id) return;
+  await action(id);
 }
 
 /** 双击标签栏空白 = 新建（对标常见编辑器） */
@@ -85,20 +145,34 @@ function scrollActiveIntoView() {
     block: "nearest",
     behavior: "smooth",
   });
-  // scrollIntoView 异步生效后再刷新箭头状态
   requestAnimationFrame(() => updateScrollState());
+}
+
+function onKey(e: KeyboardEvent) {
+  if (e.key === "Escape") closeMenu();
+}
+
+function onPointerDown(e: MouseEvent) {
+  if (!menuOpen.value) return;
+  const el = e.target as HTMLElement | null;
+  if (el?.closest(".tab-ctx-menu")) return;
+  closeMenu();
 }
 
 let resizeObs: ResizeObserver | null = null;
 
 onMounted(() => {
   const el = scrollRef.value;
-  if (!el) return;
-  el.addEventListener("wheel", onWheel, { passive: false });
-  el.addEventListener("scroll", updateScrollState, { passive: true });
-  resizeObs = new ResizeObserver(() => updateScrollState());
-  resizeObs.observe(el);
-  updateScrollState();
+  if (el) {
+    el.addEventListener("wheel", onWheel, { passive: false });
+    el.addEventListener("scroll", updateScrollState, { passive: true });
+    resizeObs = new ResizeObserver(() => updateScrollState());
+    resizeObs.observe(el);
+    updateScrollState();
+  }
+  window.addEventListener("keydown", onKey);
+  window.addEventListener("mousedown", onPointerDown, true);
+  window.addEventListener("blur", closeMenu);
 });
 
 onBeforeUnmount(() => {
@@ -107,6 +181,9 @@ onBeforeUnmount(() => {
   el?.removeEventListener("scroll", updateScrollState);
   resizeObs?.disconnect();
   resizeObs = null;
+  window.removeEventListener("keydown", onKey);
+  window.removeEventListener("mousedown", onPointerDown, true);
+  window.removeEventListener("blur", closeMenu);
 });
 
 watch(
@@ -158,6 +235,7 @@ watch(
         :title="tab.path ?? tab.name"
         @click="onSelect(tab.id)"
         @click.middle="closeTab(tab.id)"
+        @contextmenu="onTabContextMenu($event, tab.id)"
         @keydown.enter.prevent="onSelect(tab.id)"
         @keydown.space.prevent="onSelect(tab.id)"
       >
@@ -196,6 +274,52 @@ watch(
       +
     </button>
   </div>
+
+  <Teleport to="body">
+    <div
+      v-if="menuOpen && menuTabId"
+      class="tab-ctx-menu"
+      :style="menuStyle"
+      role="menu"
+      @contextmenu.prevent
+    >
+      <button
+        type="button"
+        class="row"
+        role="menuitem"
+        @click="runMenu((id) => closeTab(id))"
+      >
+        {{ t("editor.closeTab") }}
+      </button>
+      <button
+        type="button"
+        class="row"
+        role="menuitem"
+        :disabled="!canCloseRight"
+        @click="runMenu((id) => closeTabsToTheRight(id))"
+      >
+        {{ t("editor.closeTabsToRight") }}
+      </button>
+      <button
+        type="button"
+        class="row"
+        role="menuitem"
+        :disabled="!canCloseOthers"
+        @click="runMenu((id) => closeOtherTabs(id))"
+      >
+        {{ t("editor.closeOtherTabs") }}
+      </button>
+      <div class="divider" />
+      <button
+        type="button"
+        class="row"
+        role="menuitem"
+        @click="runMenu(() => closeAllTabs())"
+      >
+        {{ t("editor.closeAllTabs") }}
+      </button>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -334,5 +458,49 @@ watch(
 .tab-new:hover {
   color: var(--text-color);
   background: rgba(112, 113, 125, 0.25);
+}
+</style>
+
+<style>
+.tab-ctx-menu {
+  position: fixed;
+  z-index: 10050;
+  min-width: 180px;
+  padding: 6px;
+  background: #2e3238;
+  border: 1px solid var(--border-color, #474d54);
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  color: var(--text-color, #b8bfc6);
+  font-size: 13px;
+}
+
+.tab-ctx-menu .row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.tab-ctx-menu .row:hover:not(:disabled) {
+  background: rgba(112, 113, 125, 0.35);
+}
+
+.tab-ctx-menu .row:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.tab-ctx-menu .divider {
+  height: 1px;
+  margin: 5px 4px;
+  background: var(--border-color, #474d54);
 }
 </style>

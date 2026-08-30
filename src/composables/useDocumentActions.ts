@@ -233,6 +233,40 @@ export function useDocumentActions() {
     tabs.closeTab(id);
   }
 
+  /** 按顺序关闭多个 Tab；任一取消则中止。返回是否全部完成 */
+  async function closeTabsByIds(ids: string[]): Promise<boolean> {
+    for (const id of ids) {
+      if (!tabs.tabs.some((tab) => tab.id === id)) continue;
+      const before = tabs.tabs.length;
+      await closeTab(id);
+      // dirty 取消时 Tab 仍在
+      if (
+        tabs.tabs.length === before &&
+        tabs.tabs.some((tab) => tab.id === id)
+      ) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  async function closeTabsToTheRight(id: string) {
+    const index = tabs.tabs.findIndex((tab) => tab.id === id);
+    if (index < 0) return;
+    const ids = tabs.tabs.slice(index + 1).map((tab) => tab.id);
+    await closeTabsByIds(ids);
+  }
+
+  async function closeOtherTabs(id: string) {
+    const ids = tabs.tabs.filter((tab) => tab.id !== id).map((tab) => tab.id);
+    await closeTabsByIds(ids);
+  }
+
+  async function closeAllTabs() {
+    const ids = tabs.tabs.map((tab) => tab.id);
+    await closeTabsByIds(ids);
+  }
+
   async function closeActiveTab() {
     await closeTab(tabs.activeId);
   }
@@ -273,6 +307,9 @@ export function useDocumentActions() {
     exportDocx,
     closeTab,
     closeActiveTab,
+    closeTabsToTheRight,
+    closeOtherTabs,
+    closeAllTabs,
     newFile,
     confirmCloseWithSave,
     /** @deprecated 使用 confirmCloseWithSave */

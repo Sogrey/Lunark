@@ -120,6 +120,9 @@ export type MessageSchema = {
     closeTabNamed: string;
     scrollTabsLeft: string;
     scrollTabsRight: string;
+    closeTabsToRight: string;
+    closeOtherTabs: string;
+    closeAllTabs: string;
     previewEmpty: string;
     noMdInFolder: string;
     outlineEmpty: string;
