@@ -106,11 +106,15 @@ if (synced.length === 0) {
 const dirty = git("status", "--porcelain");
 if (dirty) {
   const onlyVersion = dirty
-    .split("\n")
+    .split(/\r?\n/)
     .filter(Boolean)
     .every((line) => {
-      const f = line.slice(3).trim().replace(/\\/g, "/");
-      return VERSION_FILES.includes(f);
+      // porcelain: "XY PATH" or "XY ORIG -> PATH"；路径可能带引号
+      let path = line.slice(3).trim();
+      const arrow = path.lastIndexOf(" -> ");
+      if (arrow >= 0) path = path.slice(arrow + 4).trim();
+      path = path.replace(/^"(.*)"$/, "$1").replace(/\\/g, "/");
+      return VERSION_FILES.includes(path);
     });
   if (!onlyVersion) {
     console.error(
