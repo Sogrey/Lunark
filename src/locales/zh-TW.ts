@@ -140,6 +140,7 @@ const zhTW: MessageSchema = {
     replaceAria: "取代",
     findPrev: "上一個 (Shift+Enter)",
     findNext: "下一個 (Enter)",
+    searchGo: "尋找",
     matchCase: "區分大小寫",
     wholeWord: "全字",
     toggleReplace: "取代",

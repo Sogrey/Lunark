@@ -13,6 +13,7 @@ import {
 import type { EditorView } from "@codemirror/view";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { useEditorStore } from "@/stores/editor";
+import { getDocSearchBridge } from "@/lib/editor/docSearch";
 
 const { t } = useI18n();
 const editor = useEditorStore();
@@ -23,30 +24,33 @@ const caseSensitive = ref(false);
 const wholeWord = ref(false);
 const matchIndex = ref(0);
 const matchTotal = ref(0);
+/** 已对当前关键字执行过检索（回车/按钮）；改关键字后需再确认 */
+const searchCommitted = ref(false);
 
 const matchLabel = computed(() => {
-  if (!query.value) return "";
+  if (!query.value || !searchCommitted.value) return "";
   if (matchTotal.value === 0) return t("editor.notFound");
   return `${matchIndex.value}/${matchTotal.value}`;
 });
 
-function applyQuery() {
-  const view = editor.cmView;
-  if (!view) return;
-  view.dispatch({
-    effects: setSearchQuery.of(
-      new SearchQuery({
-        search: query.value,
-        replace: replace.value,
-        caseSensitive: caseSensitive.value,
-        wholeWord: wholeWord.value,
-      }),
-    ),
-  });
-  refreshMatchInfo(view);
+const queryOpts = () => ({
+  search: query.value,
+  replace: replace.value,
+  caseSensitive: caseSensitive.value,
+  wholeWord: wholeWord.value,
+});
+
+function useCm(): EditorView | null {
+  return editor.cmView;
 }
 
-function refreshMatchInfo(view: EditorView) {
+function applyCmQuery(view: EditorView) {
+  view.dispatch({
+    effects: setSearchQuery.of(new SearchQuery(queryOpts())),
+  });
+}
+
+function refreshCmMatchInfo(view: EditorView) {
   const q = getSearchQuery(view.state);
   if (!q.search) {
     matchIndex.value = 0;
@@ -71,37 +75,84 @@ function refreshMatchInfo(view: EditorView) {
   matchIndex.value = idx >= 0 ? idx + 1 : 1;
 }
 
+function applyInfo(info: { index: number; total: number }) {
+  matchIndex.value = info.index;
+  matchTotal.value = info.total;
+}
+
+/** 回车 / 搜索：跳到下一处；首次对该关键字则从当前位置往后找 */
 function runFindNext() {
-  applyQuery();
-  const view = editor.cmView;
-  if (view) {
-    findNext(view);
-    refreshMatchInfo(view);
+  if (!query.value) {
+    matchIndex.value = 0;
+    matchTotal.value = 0;
+    searchCommitted.value = false;
+    return;
   }
+  searchCommitted.value = true;
+
+  const view = useCm();
+  if (view) {
+    applyCmQuery(view);
+    findNext(view);
+    refreshCmMatchInfo(view);
+  } else {
+    const bridge = getDocSearchBridge();
+    if (!bridge) return;
+    bridge.setQuery(queryOpts());
+    applyInfo(bridge.findNext());
+  }
+  keepFindFocus();
 }
 
 function runFindPrev() {
-  applyQuery();
-  const view = editor.cmView;
+  if (!query.value) return;
+  searchCommitted.value = true;
+
+  const view = useCm();
   if (view) {
+    applyCmQuery(view);
     findPrevious(view);
-    refreshMatchInfo(view);
+    refreshCmMatchInfo(view);
+  } else {
+    const bridge = getDocSearchBridge();
+    if (!bridge) return;
+    bridge.setQuery(queryOpts());
+    applyInfo(bridge.findPrevious());
   }
+  keepFindFocus();
 }
 
 function runReplace() {
-  applyQuery();
-  const view = editor.cmView;
+  if (!query.value) return;
+  searchCommitted.value = true;
+
+  const view = useCm();
   if (view) {
+    applyCmQuery(view);
     replaceNext(view);
-    refreshMatchInfo(view);
+    refreshCmMatchInfo(view);
+  } else {
+    const bridge = getDocSearchBridge();
+    if (!bridge) return;
+    bridge.setQuery(queryOpts());
+    applyInfo(bridge.replaceNext());
   }
+  keepFindFocus();
 }
 
 async function runReplaceAll() {
-  applyQuery();
-  const view = editor.cmView;
-  if (!view || !query.value) return;
+  if (!query.value) return;
+  searchCommitted.value = true;
+
+  // 先统计
+  const view = useCm();
+  const bridge = getDocSearchBridge();
+  if (view) {
+    applyCmQuery(view);
+    refreshCmMatchInfo(view);
+  } else if (bridge) {
+    applyInfo(bridge.setQuery(queryOpts()));
+  }
   if (matchTotal.value === 0) return;
 
   const confirmMsg = t("editor.replaceAllConfirm", { n: matchTotal.value });
@@ -116,8 +167,19 @@ async function runReplaceAll() {
   }
   if (!ok) return;
 
-  replaceAll(view);
-  refreshMatchInfo(view);
+  if (view) {
+    replaceAll(view);
+    refreshCmMatchInfo(view);
+  } else if (bridge) {
+    applyInfo(bridge.replaceAll());
+  }
+  keepFindFocus();
+}
+
+function keepFindFocus() {
+  void nextTick(() => {
+    findInput.value?.focus({ preventScroll: true });
+  });
 }
 
 function onFindKeydown(e: KeyboardEvent) {
@@ -128,7 +190,9 @@ function onFindKeydown(e: KeyboardEvent) {
   } else if (e.key === "Escape") {
     e.preventDefault();
     editor.closeSearch();
-    editor.cmView?.focus();
+    const bridge = getDocSearchBridge();
+    if (editor.cmView) editor.cmView.focus();
+    else bridge?.focusEditor();
   }
 }
 
@@ -139,30 +203,50 @@ function onReplaceKeydown(e: KeyboardEvent) {
   } else if (e.key === "Escape") {
     e.preventDefault();
     editor.closeSearch();
-    editor.cmView?.focus();
+    const bridge = getDocSearchBridge();
+    if (editor.cmView) editor.cmView.focus();
+    else bridge?.focusEditor();
   }
 }
 
 watch(
-  () => editor.searchOpen,
-  async (open) => {
+  () => [editor.searchOpen, editor.searchFocusSeq] as const,
+  async ([open]) => {
     if (!open) return;
-    await nextTick();
-    findInput.value?.focus();
-    findInput.value?.select();
-    applyQuery();
+    await focusFindInput();
   },
 );
 
-watch([query, replace, caseSensitive, wholeWord], () => {
-  if (editor.searchOpen) applyQuery();
+watch([query, caseSensitive, wholeWord], () => {
+  // 改关键字后视为未提交，避免未按回车就跳转
+  searchCommitted.value = false;
+  matchIndex.value = 0;
+  matchTotal.value = 0;
 });
 
 onMounted(() => {
   if (editor.searchOpen) {
-    findInput.value?.focus();
+    void focusFindInput();
   }
 });
+
+async function focusFindInput() {
+  await nextTick();
+  for (let i = 0; i < 8; i += 1) {
+    const el = findInput.value;
+    if (el) {
+      el.focus({ preventScroll: true });
+      el.select();
+      if (document.activeElement === el) return;
+    }
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => resolve());
+    });
+    if (i > 0) {
+      await new Promise((r) => setTimeout(r, 20 * i));
+    }
+  }
+}
 </script>
 
 <template>
@@ -173,13 +257,14 @@ onMounted(() => {
         v-model="query"
         class="field"
         type="text"
+        autofocus
         :placeholder="t('editor.findPlaceholder')"
         :aria-label="t('editor.findAria')"
         @keydown="onFindKeydown"
       />
       <span
         class="match-count"
-        :class="{ empty: matchTotal === 0 && !!query }"
+        :class="{ empty: searchCommitted && matchTotal === 0 && !!query }"
         aria-live="polite"
       >
         {{ matchLabel }}
@@ -191,6 +276,14 @@ onMounted(() => {
         @click="runFindPrev"
       >
         ↑
+      </button>
+      <button
+        type="button"
+        class="btn primary"
+        :title="t('editor.findNext')"
+        @click="runFindNext"
+      >
+        {{ t("editor.searchGo") }}
       </button>
       <button
         type="button"
@@ -304,6 +397,18 @@ onMounted(() => {
 .btn.active {
   background: var(--item-hover-bg-color);
   color: var(--item-hover-text-color);
+}
+
+.btn.primary {
+  background: var(--primary-color, #3a7afe);
+  border-color: var(--primary-color, #3a7afe);
+  color: #fff;
+  padding: 0 10px;
+}
+
+.btn.primary:hover {
+  filter: brightness(1.05);
+  color: #fff;
 }
 
 .btn.ghost {

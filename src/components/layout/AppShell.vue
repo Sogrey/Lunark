@@ -14,6 +14,7 @@ import {
   notifyPrefsRestored,
   usePrefsPersistence,
 } from "@/lib/prefs/persistence";
+import { loadPrefs } from "@/lib/prefs/store";
 import { useWindowLifecycle } from "@/composables/useWindowLifecycle";
 import { useExternalFileWatch } from "@/composables/useExternalFileWatch";
 import { useMenuBridge } from "@/composables/useMenuBridge";
@@ -33,12 +34,17 @@ const shellClass = computed(() => ({
 
 onMounted(() => {
   void (async () => {
-    const { restoredWorkspace, restoredTabs, window: geo } =
-      await prefs.hydrate();
+    const initialPrefs = await loadPrefs();
+    // 尺寸已在 main.ts bootstrap 中恢复；此处不再二次 setSize，避免加载 Tab 时跳动
     await windowLife.bind({
-      geometry: geo ?? undefined,
+      geometry: initialPrefs.window ?? undefined,
+      skipInitialPlacement: true,
       onGeometry: (g) => prefs.setWindowGeometry(g),
+      onFlushSave: (geo) => prefs.flushSave(geo),
     });
+
+    const { restoredWorkspace, restoredTabs } =
+      await prefs.hydrate(initialPrefs);
     await setupAppMenu();
     notifyPrefsRestored(restoredWorkspace, restoredTabs);
   })();
@@ -56,12 +62,7 @@ onBeforeUnmount(() => {
       <Sidebar v-if="workspace.sidebarVisible && !editor.focusMode" />
       <main class="main">
         <TabBar v-if="!editor.focusMode" />
-        <SearchBar
-          v-if="
-            editor.searchOpen ||
-            (!editor.focusMode && editor.viewMode !== 'hybrid')
-          "
-        />
+        <SearchBar v-if="editor.searchOpen" />
         <div class="editor-area">
           <EditorWorkspace />
         </div>

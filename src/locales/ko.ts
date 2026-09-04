@@ -140,6 +140,7 @@ const ko: MessageSchema = {
     replaceAria: "바꾸기",
     findPrev: "이전 (Shift+Enter)",
     findNext: "다음 (Enter)",
+    searchGo: "찾기",
     matchCase: "대/소문자 구분",
     wholeWord: "단어 단위",
     toggleReplace: "바꾸기",

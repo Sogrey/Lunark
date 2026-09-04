@@ -10,6 +10,8 @@
     "core:window:allow-set-title",
     "core:window:allow-set-size",
     "core:window:allow-set-position",
+    "core:window:allow-show",
+    "core:window:allow-hide",
     "core:window:allow-outer-size",
     "core:window:allow-outer-position",
     "core:window:allow-scale-factor",

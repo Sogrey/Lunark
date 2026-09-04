@@ -18,6 +18,11 @@ import {
 } from "@/lib/editor/imageInput";
 import { createHybridFormatBridge } from "@/lib/editor/hybridFormat";
 import { clearFormatBridge, setFormatBridge } from "@/lib/editor/formatBridge";
+import {
+  clearDocSearchBridge,
+  createHybridDocSearch,
+  setDocSearchBridge,
+} from "@/lib/editor/docSearch";
 import { lunarkHybridSourceMarks } from "@/lib/editor/hybrid/sourceMarksPlugin";
 import { lunarkHybridMarkdownInput } from "@/lib/editor/hybridMarkdownInput";
 
@@ -45,6 +50,18 @@ let unbindDrop: (() => void) | null = null;
 let typewriterTimer: ReturnType<typeof setTimeout> | null = null;
 let releaseApplyTimer: ReturnType<typeof setTimeout> | null = null;
 const hybridBridge = createHybridFormatBridge(() => crepe);
+const hybridSearch = createHybridDocSearch(() => {
+  if (!crepe || !ready) return null;
+  try {
+    let pmView: import("@milkdown/kit/prose/view").EditorView | null = null;
+    crepe.editor.action((ctx) => {
+      pmView = ctx.get(editorViewCtx);
+    });
+    return pmView;
+  } catch {
+    return null;
+  }
+});
 
 function beginExternalApply() {
   applyingExternal = true;
@@ -140,6 +157,7 @@ async function mountCrepe() {
   crepe = instance;
   ready = true;
   setFormatBridge(hybridBridge);
+  setDocSearchBridge(hybridSearch);
 
   // 新建空白标签：正文自动聚焦，方便直接输入
   if (isEffectivelyEmpty(initialMarkdown)) {
@@ -162,6 +180,7 @@ function focusOwnedEditor() {
 async function destroyCrepe() {
   ready = false;
   clearFormatBridge(hybridBridge);
+  clearDocSearchBridge(hybridSearch);
   if (!crepe) return;
   const inst = crepe;
   crepe = null;

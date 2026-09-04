@@ -134,6 +134,7 @@ export type MessageSchema = {
     replaceAria: string;
     findPrev: string;
     findNext: string;
+    searchGo: string;
     matchCase: string;
     wholeWord: string;
     toggleReplace: string;

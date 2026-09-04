@@ -1,7 +1,6 @@
 import { defineStore } from "pinia";
 import { computed, nextTick, ref, shallowRef } from "vue";
 import { EditorView } from "@codemirror/view";
-import { ElMessage } from "element-plus";
 import { useTabsStore } from "@/stores/tabs";
 import { insertTextAtCursor } from "@/lib/editor/insertText";
 import { t, trackLocale } from "@/lib/i18n";
@@ -39,6 +38,8 @@ export const useEditorStore = defineStore("editor", () => {
   const statusBarVisible = ref(true);
   const searchOpen = ref(false);
   const searchReplaceVisible = ref(false);
+  /** 递增以强制 SearchBar 重新聚焦（含已打开时再按 Ctrl+F） */
+  const searchFocusSeq = ref(0);
 
   const content = computed(() => tabs.activeTab.content);
   const dirty = computed(() => tabs.activeTab.dirty);
@@ -152,13 +153,9 @@ export const useEditorStore = defineStore("editor", () => {
   }
 
   function openSearch(opts?: { replace?: boolean }) {
-    // 查找依赖 CM6；混合模式下先切到源码
-    if (viewMode.value === "hybrid") {
-      viewMode.value = "source";
-      ElMessage.info(t("msg.findSwitchedSource"));
-    }
     searchOpen.value = true;
     if (opts?.replace) searchReplaceVisible.value = true;
+    searchFocusSeq.value += 1;
   }
 
   function closeSearch() {
@@ -238,6 +235,7 @@ export const useEditorStore = defineStore("editor", () => {
     statusBarVisible,
     searchOpen,
     searchReplaceVisible,
+    searchFocusSeq,
     setContent,
     markSaved,
     toggleViewMode,

@@ -109,6 +109,8 @@ export function usePrefsPersistence() {
   let stopWatch: WatchStopHandle | null = null;
   let ready = false;
   let windowGeo: WindowGeometry | null = null;
+  /** hydrate 完成前改过窗口时，ready 后补一次落盘 */
+  let windowDirtyBeforeReady = false;
 
   function scheduleSave() {
     if (!ready) return;
@@ -122,7 +124,24 @@ export function usePrefsPersistence() {
 
   function setWindowGeometry(geo: WindowGeometry) {
     windowGeo = geo;
+    if (!ready) {
+      windowDirtyBeforeReady = true;
+      return;
+    }
     scheduleSave();
+  }
+
+  /** 退出前立即落盘（含窗口几何） */
+  async function flushSave(geo?: WindowGeometry | null) {
+    if (geo) windowGeo = geo;
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    if (!ready && !windowGeo) return;
+    await savePrefs(
+      collectPrefs(editor, workspace, tabs, session, theme, windowGeo),
+    );
   }
 
   async function restoreLastWorkspace(path: string) {
@@ -139,12 +158,12 @@ export function usePrefsPersistence() {
     }
   }
 
-  async function hydrate(): Promise<{
+  async function hydrate(preloaded?: AppPrefs): Promise<{
     restoredWorkspace: boolean;
     restoredTabs: number;
     window: WindowGeometry | null;
   }> {
-    const prefs = await loadPrefs();
+    const prefs = preloaded ?? (await loadPrefs());
     editor.setSplitRatio(prefs.splitRatio);
     editor.setViewMode(prefs.viewMode);
     editor.setScrollSyncEnabled(prefs.scrollSyncEnabled);
@@ -171,6 +190,10 @@ export function usePrefsPersistence() {
     tabs.applyWelcomePolicy(prefs.welcomeSeenVersion);
 
     ready = true;
+    if (windowDirtyBeforeReady) {
+      windowDirtyBeforeReady = false;
+      scheduleSave();
+    }
 
     stopWatch = watch(
       () =>
@@ -206,7 +229,7 @@ export function usePrefsPersistence() {
     }
   }
 
-  return { hydrate, dispose, setWindowGeometry };
+  return { hydrate, dispose, setWindowGeometry, flushSave };
 }
 
 /** 打开工作区后立即记住路径（不依赖防抖） */

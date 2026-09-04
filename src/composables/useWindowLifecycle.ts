@@ -14,10 +14,11 @@ import {
   defaultGeometryForMode,
   type WorkAreaLogical,
 } from "@/lib/window/geometry";
+import { readCurrentWindowGeometry } from "@/lib/window/readGeometry";
 
 /**
  * 窗口标题同步 + 关窗未保存拦截 + 几何恢复/保存。
- * 首次/恢复时按显示器工作区钳制，避免底边被任务栏挡住。
+ * 启动几何由 bootstrapWindowGeometry 在 Vue 挂载前处理；此处负责监听变更与退出落盘。
  */
 export function useWindowLifecycle() {
   const editor = useEditorStore();
@@ -27,6 +28,8 @@ export function useWindowLifecycle() {
   let unlistenClose: (() => void) | null = null;
   let geoTimer: ReturnType<typeof setTimeout> | null = null;
   let onGeometrySave: ((geo: WindowGeometry) => void) | null = null;
+  let onFlushSave: ((geo: WindowGeometry | null) => Promise<void>) | null =
+    null;
 
   async function syncTitle() {
     if (!isTauri()) {
@@ -67,7 +70,7 @@ export function useWindowLifecycle() {
   }
 
   /**
-   * 有存档则恢复并钳进工作区；无存档则按当前视图模式给默认尺寸并居中。
+   * 兜底：若 bootstrap 未执行，仍尝试恢复存档几何。
    */
   async function placeWindow(saved: WindowGeometry | null | undefined) {
     if (!isTauri()) return;
@@ -105,27 +108,27 @@ export function useWindowLifecycle() {
     if (geoTimer) clearTimeout(geoTimer);
     geoTimer = setTimeout(() => {
       void (async () => {
-        try {
-          const win = getCurrentWindow();
-          const size = await win.outerSize();
-          const pos = await win.outerPosition();
-          const factor = await win.scaleFactor();
-          onGeometrySave?.({
-            width: Math.round(size.width / factor),
-            height: Math.round(size.height / factor),
-            x: Math.round(pos.x / factor),
-            y: Math.round(pos.y / factor),
-          });
-        } catch {
-          /* ignore */
-        }
+        const geo = await readCurrentWindowGeometry();
+        if (geo) onGeometrySave?.(geo);
       })();
     }, 500);
   }
 
+  async function flushGeometryPersist() {
+    if (geoTimer) {
+      clearTimeout(geoTimer);
+      geoTimer = null;
+    }
+    const geo = await readCurrentWindowGeometry();
+    if (geo) onGeometrySave?.(geo);
+    if (onFlushSave) await onFlushSave(geo);
+  }
+
   async function bind(opts?: {
     geometry?: WindowGeometry | null;
+    skipInitialPlacement?: boolean;
     onGeometry?: (geo: WindowGeometry) => void;
+    onFlushSave?: (geo: WindowGeometry | null) => Promise<void>;
   }) {
     if (!isTauri()) {
       stopTitle = watch(
@@ -137,7 +140,11 @@ export function useWindowLifecycle() {
     }
 
     onGeometrySave = opts?.onGeometry ?? null;
-    await placeWindow(opts?.geometry ?? null);
+    onFlushSave = opts?.onFlushSave ?? null;
+
+    if (!opts?.skipInitialPlacement) {
+      await placeWindow(opts?.geometry ?? null);
+    }
 
     stopTitle = watch(
       () => editor.windowTitle,
@@ -146,15 +153,17 @@ export function useWindowLifecycle() {
     );
 
     const win = getCurrentWindow();
-    // Tauri 2：监听 closeRequested 后需自行 destroy（capabilities 需 allow-destroy）
     unlistenClose = await win.onCloseRequested(async (event) => {
       event.preventDefault();
       try {
         const ok = await confirmCloseWithSave();
-        if (ok) await win.destroy();
+        if (!ok) return;
+        await flushGeometryPersist();
+        await win.destroy();
       } catch (e) {
         console.warn("[lunark] closeRequested failed, force destroy", e);
         try {
+          await flushGeometryPersist();
           await win.destroy();
         } catch {
           /* ignore */
@@ -172,11 +181,16 @@ export function useWindowLifecycle() {
     };
   }
 
+  /** 启动恢复 Tab 后再套一次，避免首帧仍是 tauri.conf 默认尺寸 */
+  async function restoreGeometry(saved: WindowGeometry | null | undefined) {
+    await placeWindow(saved ?? null);
+  }
+
   function dispose() {
     stopTitle?.();
     unlistenClose?.();
     if (geoTimer) clearTimeout(geoTimer);
   }
 
-  return { bind, dispose, syncTitle };
+  return { bind, dispose, syncTitle, restoreGeometry };
 }

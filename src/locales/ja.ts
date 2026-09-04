@@ -140,6 +140,7 @@ const ja: MessageSchema = {
     replaceAria: "置換",
     findPrev: "前へ (Shift+Enter)",
     findNext: "次へ (Enter)",
+    searchGo: "検索",
     matchCase: "大文字と小文字を区別",
     wholeWord: "単語単位",
     toggleReplace: "置換",
