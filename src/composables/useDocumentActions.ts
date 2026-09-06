@@ -6,6 +6,7 @@ import { useSessionStore } from "@/stores/session";
 import {
   ensureMdExtension,
   fileBasename,
+  defaultSaveMarkdownPath,
   pickOpenMarkdown,
   pickSaveMarkdown,
   readMarkdownFile,
@@ -164,7 +165,11 @@ export function useDocumentActions() {
   async function saveFileAs(): Promise<boolean> {
     try {
       const picked = await pickSaveMarkdown(
-        editor.filePath ?? editor.fileName,
+        defaultSaveMarkdownPath(
+          editor.filePath,
+          editor.fileName,
+          editor.content,
+        ),
       );
       if (!picked) return false;
       const path = ensureMdExtension(picked);
