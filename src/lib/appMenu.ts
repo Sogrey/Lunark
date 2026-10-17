@@ -18,6 +18,51 @@ import {
   t,
   type LocaleId,
 } from "@/lib/i18n";
+import { listOllamaModels } from "@/lib/ai/ollama";
+
+type EditorStore = ReturnType<typeof useEditorStore>;
+
+async function buildOllamaModelSubmenu(
+  editor: EditorStore,
+  emit: (name: string, detail?: unknown) => void,
+): Promise<Submenu> {
+  let models: string[] = [];
+  if (editor.ollamaEnabled) {
+    try {
+      models = await listOllamaModels(editor.ollamaEndpoint);
+    } catch {
+      models = [];
+    }
+  }
+  const current = editor.ollamaModel.trim();
+  if (current && !models.includes(current)) {
+    models = [current, ...models];
+  }
+  const items: Array<MenuItem | CheckMenuItem> =
+    models.length === 0
+      ? [
+          await MenuItem.new({
+            id: "ollama-model-none",
+            text: t("menu.ollamaModelEmpty"),
+            enabled: false,
+            action: () => undefined,
+          }),
+        ]
+      : await Promise.all(
+          models.map((name) =>
+            CheckMenuItem.new({
+              id: `ollama-model-${name}`,
+              text: name,
+              checked: name === current,
+              action: () => emit("lunark:menu-ollama-model", name),
+            }),
+          ),
+        );
+  return Submenu.new({
+    text: t("menu.ollamaModel"),
+    items,
+  });
+}
 
 /**
  * 原生菜单。accelerator 用于菜单旁显示快捷键；
@@ -269,6 +314,71 @@ export async function refreshAppMenu(): Promise<void> {
           text: t("menu.statusBar"),
           checked: editor.statusBarVisible,
           action: () => emit("lunark:menu-toggle-status-bar"),
+        }),
+        await PredefinedMenuItem.new({ item: "Separator" }),
+        await CheckMenuItem.new({
+          id: "toggle-spellcheck",
+          text: t("menu.spellCheck"),
+          checked: editor.spellCheckEnabled,
+          action: () => emit("lunark:menu-toggle-spellcheck"),
+        }),
+        await CheckMenuItem.new({
+          id: "toggle-picgo",
+          text: t("menu.picgo"),
+          checked: editor.picgoEnabled,
+          action: () => emit("lunark:menu-toggle-picgo"),
+        }),
+        await MenuItem.new({
+          id: "image-hosts",
+          text: t("menu.imageHosts"),
+          action: () => emit("lunark:menu-image-hosts"),
+        }),
+        await CheckMenuItem.new({
+          id: "toggle-ollama",
+          text: t("menu.ollama"),
+          checked: editor.ollamaEnabled,
+          action: () => emit("lunark:menu-toggle-ollama"),
+        }),
+        await buildOllamaModelSubmenu(editor, emit),
+        await CheckMenuItem.new({
+          id: "toggle-snapshots",
+          text: t("menu.snapshots"),
+          checked: editor.snapshotsEnabled,
+          action: () => emit("lunark:menu-toggle-snapshots"),
+        }),
+        await MenuItem.new({
+          id: "restore-snapshot",
+          text: t("menu.restoreSnapshot"),
+          action: () => emit("lunark:menu-restore-snapshot"),
+        }),
+        await MenuItem.new({
+          id: "git-history",
+          text: t("menu.gitHistory"),
+          action: () => emit("lunark:menu-git-history"),
+        }),
+        await CheckMenuItem.new({
+          id: "toggle-custom-titlebar",
+          text: t("menu.customTitlebar"),
+          checked: editor.customTitlebar,
+          action: () => emit("lunark:menu-toggle-custom-titlebar"),
+        }),
+        await CheckMenuItem.new({
+          id: "material-off",
+          text: t("menu.windowMaterialOff"),
+          checked: editor.windowMaterial === "off",
+          action: () => emit("lunark:menu-window-material", "off"),
+        }),
+        await CheckMenuItem.new({
+          id: "material-mica",
+          text: t("menu.windowMaterialMica"),
+          checked: editor.windowMaterial === "mica",
+          action: () => emit("lunark:menu-window-material", "mica"),
+        }),
+        await CheckMenuItem.new({
+          id: "material-acrylic",
+          text: t("menu.windowMaterialAcrylic"),
+          checked: editor.windowMaterial === "acrylic",
+          action: () => emit("lunark:menu-window-material", "acrylic"),
         }),
       ],
     });

@@ -12,7 +12,10 @@ import { isLocaleId, t } from "@/lib/i18n";
 import { persistLocale } from "@/lib/prefs/persistence";
 import { isThemeId } from "@/lib/theme/catalog";
 import { refreshAppMenu } from "@/lib/appMenu";
-
+import {
+  applyWindowMaterial,
+  isWindowMaterial,
+} from "@/lib/window/material";
 const MENU_EVENTS = [
   "lunark:menu-open",
   "lunark:menu-open-folder",
@@ -42,6 +45,16 @@ const MENU_EVENTS = [
   "lunark:menu-toggle-focus",
   "lunark:menu-toggle-typewriter",
   "lunark:menu-toggle-status-bar",
+  "lunark:menu-toggle-spellcheck",
+  "lunark:menu-toggle-picgo",
+  "lunark:menu-image-hosts",
+  "lunark:menu-toggle-ollama",
+  "lunark:menu-ollama-model",
+  "lunark:menu-toggle-snapshots",
+  "lunark:menu-restore-snapshot",
+  "lunark:menu-git-history",
+  "lunark:menu-toggle-custom-titlebar",
+  "lunark:menu-window-material",
   "lunark:menu-open-recent",
   "lunark:menu-clear-recent",
   "lunark:menu-theme",
@@ -124,7 +137,31 @@ export function useMenuBridge() {
     if (!bridge) return;
     bridge.focus();
     try {
+      const { clipboardToMarkdownTable } = await import(
+        "@/lib/editor/tablePaste"
+      );
+      let html: string | null = null;
+      try {
+        const items = await navigator.clipboard.read();
+        for (const item of items) {
+          if (item.types.includes("text/html")) {
+            const blob = await item.getType("text/html");
+            html = await blob.text();
+            break;
+          }
+        }
+      } catch {
+        /* read() may be denied; fall back to text */
+      }
       const text = await navigator.clipboard.readText();
+      const tableMd = clipboardToMarkdownTable(text, html);
+      if (tableMd) {
+        bridge.replaceSelection(
+          tableMd.endsWith("\n") ? tableMd : `${tableMd}\n`,
+        );
+        ElMessage.success(t("msg.tablePasted"));
+        return;
+      }
       if (text) bridge.replaceSelection(text);
     } catch {
       /* denied */
@@ -235,6 +272,86 @@ export function useMenuBridge() {
       case "lunark:menu-toggle-status-bar":
         once("toggle-status-bar", () => editor.toggleStatusBar());
         break;
+      case "lunark:menu-toggle-spellcheck":
+        once("toggle-spellcheck", () => {
+          editor.toggleSpellCheck();
+          void refreshAppMenu();
+        });
+        break;
+      case "lunark:menu-toggle-picgo":
+        once("toggle-picgo", () => {
+          editor.togglePicgo();
+          void refreshAppMenu();
+          ElMessage.info(
+            editor.picgoEnabled ? t("msg.picgoOn") : t("msg.picgoOff"),
+          );
+        });
+        break;
+      case "lunark:menu-image-hosts":
+        once("image-hosts", () => {
+          window.dispatchEvent(new CustomEvent("lunark:image-hosts"));
+        });
+        break;
+      case "lunark:menu-toggle-ollama":
+        once("toggle-ollama", () => {
+          editor.toggleOllama();
+          void refreshAppMenu();
+          ElMessage.info(
+            editor.ollamaEnabled ? t("msg.ollamaOn") : t("msg.ollamaOff"),
+          );
+        });
+        break;
+      case "lunark:menu-ollama-model": {
+        const model = (e as CustomEvent).detail;
+        if (typeof model !== "string" || !model.trim()) break;
+        once(`ollama-model-${model}`, () => {
+          editor.setOllamaModel(model);
+          void refreshAppMenu();
+          ElMessage.info(t("msg.ollamaModelSet", { model }));
+        });
+        break;
+      }
+      case "lunark:menu-toggle-snapshots":
+        once("toggle-snapshots", () => {
+          editor.toggleSnapshots();
+          void refreshAppMenu();
+        });
+        break;
+      case "lunark:menu-restore-snapshot":
+        once("restore-snapshot", () => {
+          window.dispatchEvent(
+            new CustomEvent("lunark:history", { detail: "snapshots" }),
+          );
+        });
+        break;
+      case "lunark:menu-git-history":
+        once("git-history", () => {
+          window.dispatchEvent(
+            new CustomEvent("lunark:history", { detail: "git" }),
+          );
+        });
+        break;
+      case "lunark:menu-toggle-custom-titlebar":
+        once("toggle-custom-titlebar", () => {
+          void (async () => {
+            editor.toggleCustomTitlebar();
+            const { applyCustomTitlebar } = await import(
+              "@/lib/window/titlebar"
+            );
+            await applyCustomTitlebar(editor.customTitlebar);
+            await refreshAppMenu();
+          })();
+        });
+        break;
+      case "lunark:menu-window-material": {
+        const kind = (e as CustomEvent).detail;
+        if (!isWindowMaterial(kind)) break;
+        once(`material-${kind}`, () => {
+          editor.setWindowMaterial(kind);
+          void applyWindowMaterial(kind).then(() => refreshAppMenu());
+        });
+        break;
+      }
       case "lunark:menu-open-recent": {
         const path = (e as CustomEvent).detail;
         if (typeof path === "string" && path) void openPathInTab(path);

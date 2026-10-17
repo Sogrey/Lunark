@@ -3,6 +3,7 @@ import { useI18n } from "vue-i18n";
 import FileTreeNode from "@/components/sidebar/FileTreeNode.vue";
 import OutlinePanel from "@/components/sidebar/OutlinePanel.vue";
 import GlobalSearchPanel from "@/components/sidebar/GlobalSearchPanel.vue";
+import BacklinksPanel from "@/components/sidebar/BacklinksPanel.vue";
 import { useWorkspaceStore } from "@/stores/workspace";
 import { useSessionStore } from "@/stores/session";
 import { useDocumentActions } from "@/composables/useDocumentActions";
@@ -47,6 +48,16 @@ const { openPathInTab, openFolder, refreshFolder, clearRecentFiles } =
         @click="workspace.setSidebarPanel('search')"
       >
         {{ t("shell.search") }}
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="panel-tab"
+        :aria-selected="workspace.sidebarPanel === 'backlinks'"
+        :class="{ active: workspace.sidebarPanel === 'backlinks' }"
+        @click="workspace.setSidebarPanel('backlinks')"
+      >
+        {{ t("shell.backlinks") }}
       </button>
     </div>
 
@@ -127,8 +138,12 @@ const { openPathInTab, openFolder, refreshFolder, clearRecentFiles } =
       <OutlinePanel />
     </div>
 
-    <div v-else class="panel-body">
+    <div v-else-if="workspace.sidebarPanel === 'search'" class="panel-body">
       <GlobalSearchPanel />
+    </div>
+
+    <div v-else class="panel-body">
+      <BacklinksPanel />
     </div>
   </aside>
 </template>

@@ -1,5 +1,6 @@
 import { watch, type WatchStopHandle } from "vue";
 import { exists } from "@tauri-apps/plugin-fs";
+import { grantUserPath } from "@/lib/fs/scope";
 import { isTauri } from "@tauri-apps/api/core";
 import { ElMessage } from "element-plus";
 import { useEditorStore } from "@/stores/editor";
@@ -22,6 +23,8 @@ import {
 } from "@/lib/fs/workspaceIo";
 import { fileBasename, readMarkdownFile } from "@/lib/fs/documentIo";
 import { rememberDiskMtime } from "@/composables/useExternalFileWatch";
+import { applyWindowMaterial } from "@/lib/window/material";
+import { applyCustomTitlebar } from "@/lib/window/titlebar";
 import { refreshAppMenu } from "@/lib/appMenu";
 import { getLocale, setLocale, t, type LocaleId } from "@/lib/i18n";
 
@@ -56,6 +59,17 @@ function collectPrefs(
     focusMode: editor.focusMode,
     typewriterMode: editor.typewriterMode,
     statusBarVisible: editor.statusBarVisible,
+    spellCheckEnabled: editor.spellCheckEnabled,
+    picgoEnabled: editor.picgoEnabled,
+    picgoEndpoint: editor.picgoEndpoint,
+    imageHosts: editor.imageHosts.map((h) => ({ ...h })),
+    activeImageHostId: editor.activeImageHostId,
+    windowMaterial: editor.windowMaterial,
+    customTitlebar: editor.customTitlebar,
+    ollamaEnabled: editor.ollamaEnabled,
+    ollamaEndpoint: editor.ollamaEndpoint,
+    ollamaModel: editor.ollamaModel,
+    snapshotsEnabled: editor.snapshotsEnabled,
     themeId: theme.themeId,
     locale: getLocale(),
     lastWorkspacePath: workspace.rootPath,
@@ -77,6 +91,7 @@ async function restoreSessionTabs(
 
   for (const path of paths) {
     try {
+      await grantUserPath(path);
       if (!(await exists(path))) continue;
       const text = await readMarkdownFile(path);
       tabs.openOrFocus(path, fileBasename(path), text);
@@ -147,6 +162,7 @@ export function usePrefsPersistence() {
   async function restoreLastWorkspace(path: string) {
     if (!isTauri()) return;
     try {
+      await grantUserPath(path);
       if (!(await exists(path))) return;
       workspace.treeLoading = true;
       const tree = await buildMarkdownTree(path);
@@ -170,6 +186,19 @@ export function usePrefsPersistence() {
     editor.setFocusMode(prefs.focusMode);
     editor.setTypewriterMode(prefs.typewriterMode);
     editor.setStatusBarVisible(prefs.statusBarVisible);
+    editor.setSpellCheckEnabled(prefs.spellCheckEnabled);
+    editor.setPicgoEnabled(prefs.picgoEnabled);
+    editor.setImageHosts(prefs.imageHosts);
+    editor.setActiveImageHostId(prefs.activeImageHostId);
+    editor.setPicgoEndpoint(prefs.picgoEndpoint);
+    editor.setWindowMaterial(prefs.windowMaterial);
+    editor.setCustomTitlebar(prefs.customTitlebar);
+    editor.setOllamaEnabled(prefs.ollamaEnabled);
+    editor.setOllamaEndpoint(prefs.ollamaEndpoint);
+    editor.setOllamaModel(prefs.ollamaModel);
+    editor.setSnapshotsEnabled(prefs.snapshotsEnabled);
+    await applyCustomTitlebar(prefs.customTitlebar);
+    await applyWindowMaterial(prefs.windowMaterial);
     await theme.hydrate(prefs.themeId);
     setLocale(prefs.locale);
     workspace.applySidebarPrefs(prefs.sidebarVisible, prefs.sidebarPanel);
@@ -204,6 +233,19 @@ export function usePrefsPersistence() {
           editor.focusMode,
           editor.typewriterMode,
           editor.statusBarVisible,
+          editor.spellCheckEnabled,
+          editor.picgoEnabled,
+          editor.picgoEndpoint,
+          editor.activeImageHostId,
+          editor.imageHosts
+            .map((h) => `${h.id}\t${h.name}\t${h.kind}\t${h.endpoint}`)
+            .join("\0"),
+          editor.windowMaterial,
+          editor.customTitlebar,
+          editor.ollamaEnabled,
+          editor.ollamaEndpoint,
+          editor.ollamaModel,
+          editor.snapshotsEnabled,
           theme.themeId,
           workspace.sidebarVisible,
           workspace.sidebarPanel,

@@ -9,9 +9,28 @@ import {
   isLocaleId,
   type LocaleId,
 } from "@/lib/i18n";
+import {
+  DEFAULT_PICGO_ENDPOINT,
+} from "@/lib/fs/picgo";
+import {
+  createDefaultImageHosts,
+  normalizeImageHosts,
+  resolveActiveHost,
+  type ImageHostProfile,
+} from "@/lib/fs/imageHosts";
+import {
+  DEFAULT_OLLAMA_ENDPOINT,
+  DEFAULT_OLLAMA_MODEL,
+} from "@/lib/ai/ollama";
+import {
+  isWindowMaterial,
+  type WindowMaterial,
+} from "@/lib/window/material";
 
 export type { RecentFileEntry };
 export type { LocaleId };
+export type { WindowMaterial };
+export type { ImageHostProfile };
 
 const STORE_FILE = "lunark-prefs.json";
 
@@ -46,6 +65,25 @@ export interface AppPrefs {
   welcomeSeenVersion: string | null;
   recentFiles: RecentFileEntry[];
   window: WindowGeometry | null;
+  /** 源码模式英文拼写波浪线 */
+  spellCheckEnabled: boolean;
+  /** 粘贴/拖图走远程图床（与 imageHosts 联动） */
+  picgoEnabled: boolean;
+  /** 兼容旧 prefs：等于当前 active host 的 endpoint */
+  picgoEndpoint: string;
+  /** 多图床配置 */
+  imageHosts: ImageHostProfile[];
+  activeImageHostId: string;
+  /** Windows 窗口材质 */
+  windowMaterial: WindowMaterial;
+  /** 自绘标题栏（无系统边框） */
+  customTitlebar: boolean;
+  /** 本机 Ollama 助手 */
+  ollamaEnabled: boolean;
+  ollamaEndpoint: string;
+  ollamaModel: string;
+  /** 保存时写快照 */
+  snapshotsEnabled: boolean;
 }
 
 export const DEFAULT_PREFS: AppPrefs = {
@@ -65,6 +103,17 @@ export const DEFAULT_PREFS: AppPrefs = {
   welcomeSeenVersion: null,
   recentFiles: [],
   window: null,
+  spellCheckEnabled: false,
+  picgoEnabled: false,
+  picgoEndpoint: DEFAULT_PICGO_ENDPOINT,
+  imageHosts: createDefaultImageHosts(),
+  activeImageHostId: createDefaultImageHosts()[0]!.id,
+  windowMaterial: "off",
+  customTitlebar: true,
+  ollamaEnabled: false,
+  ollamaEndpoint: DEFAULT_OLLAMA_ENDPOINT,
+  ollamaModel: DEFAULT_OLLAMA_MODEL,
+  snapshotsEnabled: true,
 };
 
 let storePromise: Promise<Store | null> | null = null;
@@ -84,19 +133,17 @@ async function getStore(): Promise<Store | null> {
 function parseWindow(raw: unknown): WindowGeometry | null {
   if (!raw || typeof raw !== "object") return null;
   const w = raw as Partial<WindowGeometry>;
-  if (
-    typeof w.width !== "number" ||
-    typeof w.height !== "number" ||
-    typeof w.x !== "number" ||
-    typeof w.y !== "number"
-  ) {
+  if (typeof w.width !== "number" || typeof w.height !== "number") {
+    return null;
+  }
+  if (!Number.isFinite(w.width) || !Number.isFinite(w.height)) {
     return null;
   }
   return {
-    width: Math.max(640, w.width),
-    height: Math.max(400, w.height),
-    x: w.x,
-    y: w.y,
+    width: Math.max(640, Math.round(w.width)),
+    height: Math.max(400, Math.round(w.height)),
+    x: typeof w.x === "number" && Number.isFinite(w.x) ? Math.round(w.x) : 0,
+    y: typeof w.y === "number" && Number.isFinite(w.y) ? Math.round(w.y) : 0,
   };
 }
 
@@ -148,7 +195,9 @@ export function normalizePrefs(raw: unknown): AppPrefs {
         ? p.sidebarVisible
         : DEFAULT_PREFS.sidebarVisible,
     sidebarPanel:
-      p.sidebarPanel === "outline" || p.sidebarPanel === "search"
+      p.sidebarPanel === "outline" ||
+      p.sidebarPanel === "search" ||
+      p.sidebarPanel === "backlinks"
         ? p.sidebarPanel
         : "files",
     scrollSyncEnabled:
@@ -171,6 +220,45 @@ export function normalizePrefs(raw: unknown): AppPrefs {
         : null,
     recentFiles: parseRecent(p.recentFiles),
     window: parseWindow(p.window),
+    spellCheckEnabled: p.spellCheckEnabled === true,
+    picgoEnabled: p.picgoEnabled === true,
+    picgoEndpoint:
+      typeof p.picgoEndpoint === "string" && p.picgoEndpoint.trim()
+        ? p.picgoEndpoint.trim()
+        : DEFAULT_PICGO_ENDPOINT,
+    imageHosts: (() => {
+      const ep =
+        typeof p.picgoEndpoint === "string" && p.picgoEndpoint.trim()
+          ? p.picgoEndpoint.trim()
+          : DEFAULT_PICGO_ENDPOINT;
+      return normalizeImageHosts(p.imageHosts, ep);
+    })(),
+    activeImageHostId: (() => {
+      const ep =
+        typeof p.picgoEndpoint === "string" && p.picgoEndpoint.trim()
+          ? p.picgoEndpoint.trim()
+          : DEFAULT_PICGO_ENDPOINT;
+      const hosts = normalizeImageHosts(p.imageHosts, ep);
+      const id =
+        typeof p.activeImageHostId === "string" && p.activeImageHostId.trim()
+          ? p.activeImageHostId.trim()
+          : hosts[0]?.id ?? "";
+      return resolveActiveHost(hosts, id)?.id ?? hosts[0]?.id ?? "";
+    })(),
+    windowMaterial: isWindowMaterial(p.windowMaterial)
+      ? p.windowMaterial
+      : "off",
+    customTitlebar: p.customTitlebar !== false,
+    ollamaEnabled: p.ollamaEnabled === true,
+    ollamaEndpoint:
+      typeof p.ollamaEndpoint === "string" && p.ollamaEndpoint.trim()
+        ? p.ollamaEndpoint.trim()
+        : DEFAULT_OLLAMA_ENDPOINT,
+    ollamaModel:
+      typeof p.ollamaModel === "string" && p.ollamaModel.trim()
+        ? p.ollamaModel.trim()
+        : DEFAULT_OLLAMA_MODEL,
+    snapshotsEnabled: p.snapshotsEnabled !== false,
   };
 }
 

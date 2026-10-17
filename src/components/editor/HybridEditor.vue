@@ -1,9 +1,15 @@
 <script setup lang="ts">
 /**
- * 每个 Tab 一个 HybridEditor 实例（父级 :key="activeId"）。
- * 切 Tab = 卸载旧实例（flush 回该 Tab）+ 挂载新实例，避免单例 Crepe 串内容。
+ * 每个 Tab 一个 HybridEditor（父级按 Tab 缓存 + v-show）。
+ * 切 Tab 只隐藏/显示；首次进入才 Crepe.create。卸载时 flush 回该 Tab。
  */
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import {
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
 import { useI18n } from "vue-i18n";
 import { Crepe } from "@milkdown/crepe";
 import { editorViewCtx } from "@milkdown/kit/core";
@@ -30,17 +36,23 @@ import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/common/reset.css";
 import "@milkdown/crepe/theme/frame-dark.css";
 
+const props = defineProps<{
+  tabId: string;
+  active: boolean;
+}>();
+
 const { t } = useI18n();
 const editor = useEditorStore();
 const tabs = useTabsStore();
 
-/** 本实例终身只服务这一个 Tab（setup 时冻结） */
-const ownedTabId = tabs.activeId;
+/** 本实例终身只服务这一个 Tab（props.tabId 冻结） */
+const ownedTabId = props.tabId;
 const initialMarkdown =
   tabs.tabs.find((t) => t.id === ownedTabId)?.content ?? "";
 
 const root = ref<HTMLElement | null>(null);
 const dropActive = ref(false);
+const mounting = ref(true);
 
 let crepe: Crepe | null = null;
 let applyingExternal = false;
@@ -121,8 +133,28 @@ function loadMarkdown(md: string) {
   crepe.editor.action(replaceAll(payload, true));
 }
 
+function bindBridgesIfActive() {
+  if (!props.active || !ready || !alive) return;
+  setFormatBridge(hybridBridge);
+  setDocSearchBridge(hybridSearch);
+}
+
+function unbindBridges() {
+  clearFormatBridge(hybridBridge);
+  clearDocSearchBridge(hybridSearch);
+}
+
 async function mountCrepe() {
   if (!root.value || crepe || !alive) return;
+  mounting.value = true;
+
+  // 先让壳绘出来，再挂 Crepe，减轻大文档首次进入的卡顿感
+  await new Promise<void>((r) => requestAnimationFrame(() => r()));
+  await new Promise<void>((r) => requestAnimationFrame(() => r()));
+  if (!alive || !root.value || crepe) {
+    mounting.value = false;
+    return;
+  }
 
   const config = buildCrepeConfig(
     initialMarkdown.length === 0 ? "\n" : initialMarkdown,
@@ -152,15 +184,16 @@ async function mountCrepe() {
     } catch {
       /* ignore */
     }
+    mounting.value = false;
     return;
   }
   crepe = instance;
   ready = true;
-  setFormatBridge(hybridBridge);
-  setDocSearchBridge(hybridSearch);
+  mounting.value = false;
+  bindBridgesIfActive();
 
   // 新建空白标签：正文自动聚焦，方便直接输入
-  if (isEffectivelyEmpty(initialMarkdown)) {
+  if (props.active && isEffectivelyEmpty(initialMarkdown)) {
     await nextTick();
     requestAnimationFrame(() => focusOwnedEditor());
   }
@@ -179,8 +212,7 @@ function focusOwnedEditor() {
 
 async function destroyCrepe() {
   ready = false;
-  clearFormatBridge(hybridBridge);
-  clearDocSearchBridge(hybridSearch);
+  unbindBridges();
   if (!crepe) return;
   const inst = crepe;
   crepe = null;
@@ -256,7 +288,23 @@ onBeforeUnmount(() => {
   void destroyCrepe();
 });
 
-/** 仅本 Tab 被外部重载时同步（文件监视等）；切 Tab 靠父级 key 重建 */
+/** 激活态切换：落盘 / 绑定桥 / 聚焦 */
+watch(
+  () => props.active,
+  (on, was) => {
+    if (on) {
+      bindBridgesIfActive();
+      if (ready) {
+        void nextTick(() => focusOwnedEditor());
+      }
+    } else if (was) {
+      flushOwnedTab();
+      unbindBridges();
+    }
+  },
+);
+
+/** 仅本 Tab 被外部重载时同步（文件监视等） */
 watch(
   () => editor.content,
   (value) => {
@@ -271,14 +319,14 @@ watch(
 watch(
   () => editor.typewriterMode,
   (on) => {
-    if (on) scheduleTypewriter();
+    if (on && props.active) scheduleTypewriter();
   },
 );
 
 watch(
   () => editor.content,
   () => {
-    if (tabs.activeId === ownedTabId) scheduleTypewriter();
+    if (props.active && tabs.activeId === ownedTabId) scheduleTypewriter();
   },
 );
 
@@ -301,12 +349,14 @@ function onDrop(event: DragEvent) {
 <template>
   <div
     class="hybrid-editor"
-    :class="{ 'drop-active': dropActive }"
+    :class="{ 'drop-active': dropActive, mounting }"
     :data-hint="t('editor.dropImageHint')"
+    :aria-busy="mounting"
     @dragover="onDragOver"
     @dragleave="onDragLeave"
     @drop="onDrop"
   >
+    <div v-if="mounting" class="mount-hint">{{ t("editor.hybridLoading") }}</div>
     <div ref="root" class="crepe-root milkdown" />
   </div>
 </template>
@@ -333,6 +383,19 @@ function onDrop(event: DragEvent) {
   font-size: 14px;
   z-index: 5;
   pointer-events: none;
+}
+
+.mount-hint {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  color: var(--control-text-color, #8b9198);
+  font-size: 13px;
+  background: color-mix(in srgb, var(--bg-color, #363b40) 88%, transparent);
 }
 
 .crepe-root {

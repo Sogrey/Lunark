@@ -4,6 +4,12 @@ import { EditorView } from "@codemirror/view";
 import { useTabsStore } from "@/stores/tabs";
 import { insertTextAtCursor } from "@/lib/editor/insertText";
 import { t, trackLocale } from "@/lib/i18n";
+import { DEFAULT_PICGO_ENDPOINT } from "@/lib/fs/picgo";
+import {
+  createDefaultImageHosts,
+  resolveActiveHost,
+  type ImageHostProfile,
+} from "@/lib/fs/imageHosts";
 
 export type ViewMode = "hybrid" | "split" | "source";
 
@@ -36,6 +42,18 @@ export const useEditorStore = defineStore("editor", () => {
   const focusMode = ref(false);
   const typewriterMode = ref(false);
   const statusBarVisible = ref(true);
+  const spellCheckEnabled = ref(false);
+  const picgoEnabled = ref(false);
+  const picgoEndpoint = ref(DEFAULT_PICGO_ENDPOINT);
+  const imageHosts = ref<ImageHostProfile[]>(createDefaultImageHosts());
+  const activeImageHostId = ref(createDefaultImageHosts()[0]!.id);
+  const windowMaterial = ref<"off" | "mica" | "acrylic">("off");
+  /** 自绘标题栏（关系统边框）；默认开 */
+  const customTitlebar = ref(true);
+  const ollamaEnabled = ref(false);
+  const ollamaEndpoint = ref("http://127.0.0.1:11434");
+  const ollamaModel = ref("llama3.2");
+  const snapshotsEnabled = ref(true);
   const searchOpen = ref(false);
   const searchReplaceVisible = ref(false);
   /** 递增以强制 SearchBar 重新聚焦（含已打开时再按 Ctrl+F） */
@@ -137,6 +155,92 @@ export const useEditorStore = defineStore("editor", () => {
     statusBarVisible.value = !statusBarVisible.value;
   }
 
+  function setSpellCheckEnabled(enabled: boolean) {
+    spellCheckEnabled.value = enabled;
+  }
+
+  function toggleSpellCheck() {
+    spellCheckEnabled.value = !spellCheckEnabled.value;
+  }
+
+  function syncEndpointFromActiveHost() {
+    const host = resolveActiveHost(
+      imageHosts.value,
+      activeImageHostId.value,
+    );
+    if (host) {
+      picgoEndpoint.value = host.endpoint.trim() || DEFAULT_PICGO_ENDPOINT;
+      activeImageHostId.value = host.id;
+    }
+  }
+
+  function setPicgoEnabled(enabled: boolean) {
+    picgoEnabled.value = enabled;
+  }
+
+  function togglePicgo() {
+    picgoEnabled.value = !picgoEnabled.value;
+  }
+
+  function setPicgoEndpoint(url: string) {
+    const ep = url.trim() || DEFAULT_PICGO_ENDPOINT;
+    picgoEndpoint.value = ep;
+    const host = resolveActiveHost(
+      imageHosts.value,
+      activeImageHostId.value,
+    );
+    if (host) {
+      host.endpoint = ep;
+    }
+  }
+
+  function setImageHosts(hosts: ImageHostProfile[]) {
+    imageHosts.value =
+      hosts.length > 0 ? hosts.map((h) => ({ ...h })) : createDefaultImageHosts();
+    syncEndpointFromActiveHost();
+  }
+
+  function setActiveImageHostId(id: string) {
+    activeImageHostId.value = id;
+    syncEndpointFromActiveHost();
+  }
+
+  function setWindowMaterial(kind: "off" | "mica" | "acrylic") {
+    windowMaterial.value = kind;
+  }
+
+  function setCustomTitlebar(enabled: boolean) {
+    customTitlebar.value = enabled;
+  }
+
+  function toggleCustomTitlebar() {
+    customTitlebar.value = !customTitlebar.value;
+  }
+
+  function setOllamaEnabled(enabled: boolean) {
+    ollamaEnabled.value = enabled;
+  }
+
+  function toggleOllama() {
+    ollamaEnabled.value = !ollamaEnabled.value;
+  }
+
+  function setOllamaEndpoint(url: string) {
+    ollamaEndpoint.value = url.trim() || "http://127.0.0.1:11434";
+  }
+
+  function setOllamaModel(model: string) {
+    ollamaModel.value = model.trim() || "llama3.2";
+  }
+
+  function setSnapshotsEnabled(enabled: boolean) {
+    snapshotsEnabled.value = enabled;
+  }
+
+  function toggleSnapshots() {
+    snapshotsEnabled.value = !snapshotsEnabled.value;
+  }
+
   /** 在 CM 光标处插入；无编辑器时追加到文末 */
   function insertAtCursor(text: string) {
     const view = cmView.value;
@@ -233,6 +337,17 @@ export const useEditorStore = defineStore("editor", () => {
     focusMode,
     typewriterMode,
     statusBarVisible,
+    spellCheckEnabled,
+    picgoEnabled,
+    picgoEndpoint,
+    imageHosts,
+    activeImageHostId,
+    windowMaterial,
+    customTitlebar,
+    ollamaEnabled,
+    ollamaEndpoint,
+    ollamaModel,
+    snapshotsEnabled,
     searchOpen,
     searchReplaceVisible,
     searchFocusSeq,
@@ -252,6 +367,22 @@ export const useEditorStore = defineStore("editor", () => {
     toggleTypewriterMode,
     setStatusBarVisible,
     toggleStatusBar,
+    setSpellCheckEnabled,
+    toggleSpellCheck,
+    setPicgoEnabled,
+    togglePicgo,
+    setPicgoEndpoint,
+    setImageHosts,
+    setActiveImageHostId,
+    setWindowMaterial,
+    setCustomTitlebar,
+    toggleCustomTitlebar,
+    setOllamaEnabled,
+    toggleOllama,
+    setOllamaEndpoint,
+    setOllamaModel,
+    setSnapshotsEnabled,
+    toggleSnapshots,
     insertAtCursor,
     openSearch,
     closeSearch,

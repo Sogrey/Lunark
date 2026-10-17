@@ -153,6 +153,11 @@ export function useDocumentActions() {
         await writeMarkdownFile(editor.filePath, editor.content);
         editor.markSaved();
         await rememberDiskMtime(editor.filePath);
+        if (editor.snapshotsEnabled) {
+          void import("@/lib/fs/snapshots").then(({ writeSnapshot }) =>
+            writeSnapshot(editor.filePath!, editor.content, "save"),
+          );
+        }
         return true;
       }
       return await saveFileAs();
@@ -178,6 +183,11 @@ export function useDocumentActions() {
       tabs.markActiveSaved();
       await rememberDiskMtime(path);
       await noteRecent(path);
+      if (editor.snapshotsEnabled) {
+        void import("@/lib/fs/snapshots").then(({ writeSnapshot }) =>
+          writeSnapshot(path, editor.content, "save"),
+        );
+      }
       ElMessage.success(t("msg.savedAs", { name: fileBasename(path) }));
       return true;
     } catch (e) {
