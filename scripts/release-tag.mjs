@@ -107,9 +107,13 @@ const dirty = git("status", "--porcelain");
 if (dirty) {
   const bad = [];
   for (const line of dirty.split(/\r?\n/).filter(Boolean)) {
-    // porcelain: "XY PATH" / "XY ORIG -> PATH"（XY 恰为两列）
-    const m = /^(?:.|\s){2} (.+)$/.exec(line);
-    let path = (m?.[1] ?? line.slice(3)).trim();
+    // porcelain: "XY PATH" / "XY ORIG -> PATH"（XY 恰两列，后跟一个空格）
+    // 兼容偶发少空格：用 slice(3) 优先，否则剥掉前两列
+    let path =
+      line.length >= 3 && line[2] === " "
+        ? line.slice(3)
+        : line.replace(/^.{2}\s*/, "");
+    path = path.trim();
     const arrow = path.lastIndexOf(" -> ");
     if (arrow >= 0) path = path.slice(arrow + 4).trim();
     path = path.replace(/^"(.*)"$/, "$1").replace(/\\/g, "/");
