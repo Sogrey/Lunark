@@ -1,0 +1,27 @@
+/* lunark-theme: Content hooks */
+/* lunark-dark: true */
+
+/**
+ * 预览内容区类名示例（Lunark 原创）。
+ * 导入后只应改变预览里的围栏、任务列表、图片和脚注，不影响侧栏。
+ */
+#write .md-fences {
+  border-left: 3px solid #7eb8da;
+  padding-left: 0.75rem;
+}
+
+#write .md-task-list-item {
+  background: rgba(126, 184, 218, 0.14);
+  border-radius: 4px;
+}
+
+#write img.md-image {
+  outline: 1px dashed #7eb8da;
+  outline-offset: 4px;
+}
+
+#write .md-footnote {
+  margin-top: 2rem;
+  border-top: 1px solid #7eb8da;
+  padding-top: 0.75rem;
+}

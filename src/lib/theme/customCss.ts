@@ -21,6 +21,8 @@ import {
   customThemeId,
   type CustomThemeEntry,
 } from "@/lib/theme/catalog";
+import { grantUserPath } from "@/lib/fs/scope";
+import { unmappedShellSelectors } from "@/lib/theme/shellSelectors";
 
 const STYLE_EL_ID = "lunark-custom-theme-style";
 const MAX_CSS_BYTES = 512 * 1024;
@@ -88,7 +90,15 @@ export function injectCustomCss(css: string | null) {
     el.id = STYLE_EL_ID;
     document.head.appendChild(el);
   }
-  el.textContent = sanitizeCss(css);
+  const cleaned = sanitizeCss(css);
+  const unmapped = unmappedShellSelectors(cleaned);
+  if (unmapped.length > 0) {
+    console.info(
+      "[lunark] custom theme shell selectors have no DOM mapping:",
+      unmapped.join(", "),
+    );
+  }
+  el.textContent = cleaned;
 }
 
 async function ensureThemesDir(): Promise<string> {
@@ -178,6 +188,7 @@ export async function importCustomThemeFromPath(
   if (!name.toLowerCase().endsWith(".css")) {
     throw new Error("请选择 .css 文件");
   }
+  if (isTauri()) await grantUserPath(sourcePath);
   const css = await readTextFile(sourcePath);
   if (new TextEncoder().encode(css).length > MAX_CSS_BYTES) {
     throw new Error("主题 CSS 超过 512KB");

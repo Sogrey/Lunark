@@ -5,6 +5,8 @@ import { katex } from "@mdit/plugin-katex";
 import DOMPurify from "dompurify";
 import { enhanceFencedBlocks } from "@/lib/markdown/enhance";
 import { normalizeImageDestinations } from "@/lib/markdown/normalizeImages";
+import { applyPreviewThemeClasses } from "@/lib/markdown/previewThemeClasses";
+import { expandWikiLinksForPreview } from "@/lib/markdown/wikiLinks";
 
 const md = new MarkdownIt({
   html: false,
@@ -89,16 +91,18 @@ function sanitizeHtml(html: string): string {
 
 export async function renderMarkdown(source: string): Promise<RenderResult> {
   const { matter, body } = splitFrontMatter(source);
-  const normalized = normalizeImageDestinations(body);
+  const withWiki = expandWikiLinksForPreview(body);
+  const normalized = normalizeImageDestinations(withWiki);
   const bodyHtml = md.render(normalized);
   // 先消毒普通 HTML，再注入 Mermaid/Shiki，避免 SVG foreignObject 内文字被剥掉
   const safe = sanitizeHtml(bodyHtml);
   const enhanced = await enhanceFencedBlocks(safe);
+  const withHooks = applyPreviewThemeClasses(enhanced);
 
-  let html = enhanced;
+  let html = withHooks;
   if (matter?.trim()) {
     const fm = sanitizeHtml(matter.trim());
-    html = `<pre class="front-matter">${fm}</pre>${enhanced}`;
+    html = `<pre class="front-matter md-meta">${fm}</pre>${withHooks}`;
   }
 
   return {

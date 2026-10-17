@@ -13,6 +13,14 @@ import { renderMarkdown } from "@/lib/markdown/renderer";
 import { resolvePreviewImages } from "@/lib/markdown/images";
 import { applyTocIdsToHtml, extractToc } from "@/lib/markdown/toc";
 import { clearMermaidCache } from "@/lib/markdown/mermaid";
+import {
+  previewBlockCache,
+  splitPreviewBlocks,
+} from "@/lib/markdown/previewCache";
+import {
+  resolveWikiTarget,
+} from "@/lib/markdown/wikiLinks";
+import { collectMarkdownPaths } from "@/lib/fs/workspaceSearch";
 
 const { t } = useI18n();
 const editor = useEditorStore();
@@ -35,7 +43,17 @@ function scheduleRender(source: string, docPath: string | null) {
 async function runRender(source: string, docPath: string | null) {
   const seq = ++renderSeq;
   const toc = extractToc(source);
-  const { html: rendered } = await renderMarkdown(source);
+  const blocks = splitPreviewBlocks(source);
+  const parts = await Promise.all(
+    blocks.map(async (block) => {
+      const hit = previewBlockCache.get(block.key);
+      if (hit !== undefined) return hit;
+      const { html: piece } = await renderMarkdown(block.source);
+      previewBlockCache.set(block.key, piece);
+      return piece;
+    }),
+  );
+  const rendered = parts.join("\n");
   const withIds = applyTocIdsToHtml(rendered, toc);
   const withAssets = await resolvePreviewImages(withIds, docPath);
   if (seq !== renderSeq) return;
@@ -53,6 +71,7 @@ watch(
   () => [theme.themeId, theme.isDark] as const,
   () => {
     clearMermaidCache();
+    previewBlockCache.clear();
     scheduleRender(editor.content, editor.filePath);
   },
 );
@@ -99,6 +118,24 @@ async function onPreviewClick(event: MouseEvent) {
     event.preventDefault();
     const el = document.getElementById(decodeURIComponent(href.slice(1)));
     el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+
+  if (href.startsWith("wikilink:")) {
+    event.preventDefault();
+    let target = href.slice("wikilink:".length);
+    try {
+      target = decodeURIComponent(target);
+    } catch {
+      /* keep */
+    }
+    const paths = collectMarkdownPaths(workspace.tree);
+    const resolved = resolveWikiTarget(target, paths);
+    if (resolved) {
+      await openPathInTab(resolved);
+    } else {
+      ElMessage.info(t("msg.wikiNotFound", { name: target }));
+    }
     return;
   }
 
@@ -163,6 +200,7 @@ const empty = computed(() => !editor.content.trim());
     <div v-if="empty" class="preview-empty">{{ t("editor.previewEmpty") }}</div>
     <article
       v-else
+      id="write"
       class="markdown-preview"
       v-html="html"
     />
