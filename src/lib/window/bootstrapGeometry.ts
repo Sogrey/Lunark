@@ -29,16 +29,15 @@ async function readWorkArea(): Promise<WorkAreaLogical | null> {
 }
 
 /**
- * 在 Vue 挂载前恢复窗口尺寸/位置，避免先显示默认小窗再跳变。
- * tauri.conf 建议 `visible: false`，此处恢复后再 show。
- * 存档尺寸与 setSize 一致，使用 inner 逻辑像素。
+ * 在 Vue 挂载前恢复窗口尺寸/位置。
+ * **不**在此 show：等 AppShell 应用标题栏/材质后再显示，避免小窗→大窗跳变。
+ * Rust setup 已尽量提前恢复；此处用 prefs + 工作区钳制再校正一次。
  */
 export async function bootstrapWindowGeometry(): Promise<void> {
   if (!isTauri()) return;
 
   const win = getCurrentWindow();
   try {
-    // 尽量在 show 前完成：先读 prefs，失败则仍用 conf 默认尺寸
     const prefs = await loadPrefs();
     const work = await readWorkArea();
 
@@ -46,7 +45,9 @@ export async function bootstrapWindowGeometry(): Promise<void> {
     if (geo?.width && geo?.height) {
       geo = work ? clampGeometryToWorkArea(geo, work) : geo;
       await win.setSize(new LogicalSize(geo.width, geo.height));
-      await win.setPosition(new LogicalPosition(geo.x, geo.y));
+      if (typeof geo.x === "number" && typeof geo.y === "number") {
+        await win.setPosition(new LogicalPosition(geo.x, geo.y));
+      }
     } else if (work) {
       geo = defaultGeometryForMode(prefs.viewMode, work);
       await win.setSize(new LogicalSize(geo.width, geo.height));
@@ -54,12 +55,17 @@ export async function bootstrapWindowGeometry(): Promise<void> {
     }
   } catch (e) {
     console.warn("[lunark] bootstrap window geometry failed", e);
-  } finally {
-    try {
-      await win.show();
-      await win.setFocus();
-    } catch {
-      /* ignore */
-    }
+  }
+}
+
+/** 尺寸与壳层就绪后首次显示窗口 */
+export async function showMainWindow(): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    const win = getCurrentWindow();
+    await win.show();
+    await win.setFocus();
+  } catch (e) {
+    console.warn("[lunark] showMainWindow failed", e);
   }
 }
