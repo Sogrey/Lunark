@@ -1,7 +1,7 @@
 # Lunark MVP 路线图（方案 B）
 
 > 决策锁定：MVP = CodeMirror6 双栏 + markdown-it；**一体化 WYSIWYG 放二期。**  
-> 进度明细见 [PROGRESS.md](./PROGRESS.md)。最近核对：**2026-08-09**。
+> 进度明细见 [PROGRESS.md](./PROGRESS.md)。四期范围见 [PHASE4.md](./PHASE4.md)。最近核对：**2026-10-17**。
 
 ## 一期（MVP / P0）— **完成**
 
@@ -26,7 +26,7 @@
 
 MVP 功能与打磨项已齐。
 
-## 二期（核心完成）— 对标 Typora
+## 二期（核心完成）— 混合编辑
 
 见 [PHASE2-WYSIWYG.md](./PHASE2-WYSIWYG.md)。
 
@@ -40,10 +40,10 @@ MVP 功能与打磨项已齐。
 | M4 内置主题 + 自定义 CSS 导入 | ✅ |
 | M4 Word（.doc）/ 图片（.png）导出 | ✅ |
 | 打磨：表格匹配 / Shiki 主题 / 帮助 / prefs | ✅ |
-| Typora 风局部语法糖（hybrid 源码露出） | ✅ |
+| 局部语法糖（hybrid 源码露出） | ✅ |
 | 工程整理（hybrid 拆分 / 导出编排 / 依赖瘦身） | ✅ |
 | **混合源码条 UX 收尾（08-09）** | ✅ | 源码条删除 / 实时预览 / 清空删块 / Mermaid applyPreview |
-| M4 图床 | ⏸ 预留（暂不排期；见 PROGRESS） |
+| M4 图床 | ✅ 多配置管理 UI（PicGo / 自定义 URL；见 PHASE4 F3） |
 
 ### 混合源码条收尾（摘要）
 
@@ -59,7 +59,7 @@ MVP 功能与打磨项已齐。
 | 全局文件夹搜索 | ✅ |
 | i18n（简中/繁中/英/韩/日） | ✅（菜单 + 壳层 + 编辑器/Toast） |
 | Vim 模式 | ⏸ 预留（暂不排期） |
-| Crepe 切 Tab / 大文档性能 | ⏸ 预留（实测卡顿再做） |
+| Crepe 切 Tab / 大文档性能 | ✅ 实例缓存 + 延迟挂载 |
 
 ## 分发
 
@@ -79,9 +79,14 @@ MVP 功能与打磨项已齐。
 - **注意**：仓库 Settings → Actions → Workflow permissions 需允许 **Read and write**  
 - 本机 Windows 仍可 `pnpm tauri:build` 只打 NSIS；mac/Linux 包从 CI Release 下载  
 
+## 四期 — **桌面批次已落地 · 移动端预留**
+
+见 [PHASE4.md](./PHASE4.md)。含安全基线、预览主题类名、表格/图床管理/拼写/缓存/材质、自绘标题栏、启动窗口尺寸恢复、Ollama（含模型选择）、快照列表、Git 时间线、`[[wiki-link]]` 反链、Crepe 切 Tab 缓存。移动端壳预留暂不排期。
+
 ## 建议下一步
 
-1. **持续**：推 `v*` 或手动跑 CI，用 Release 做多平台内测  
-2. **按需**：反馈驱动的小修复 / 打磨（不新开大功能）  
-3. **预留暂不排期**：Vim / Crepe 切 Tab / 图床；签名 / 公证待正式对外再开  
-4. 预留功能见 [PROGRESS.md](./PROGRESS.md)「预留 / 已知债」
+1. **手测**四期全量 + [QA-SMOKE](./QA-SMOKE.md)（含启动尺寸、图床对话框、切 Tab）
+2. **持续**：推 `v*` 或手动跑 CI，用 Release 做多平台内测
+3. **按需**：反馈驱动的小修复 / 打磨
+4. **预留暂不排期**：移动端壳（跨平台）；Vim；签名 / 公证待正式对外再开
+5. 预留说明见 [PROGRESS.md](./PROGRESS.md)「预留 / 已知债」

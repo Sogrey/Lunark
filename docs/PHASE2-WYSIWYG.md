@@ -1,6 +1,6 @@
 # 二期：一体化 WYSIWYG 改造说明
 
-> **二期核心完成（核对 2026-08-08）。** 对标 Typora。  
+> **二期核心完成（核对 2026-08-08）。** 混合编辑。  
 > 一期进度见 [PROGRESS.md](./PROGRESS.md)。
 
 ## 锁定决策
@@ -8,11 +8,11 @@
 | 项 | 选择 |
 |---|---|
 | 内核 | **Milkdown Crepe** |
-| 范围 | **中**：IR 混合 + Focus/打字机/字数；主题；Word/图片导出；图床后置 |
+| 范围 | **中**：IR 混合 + Focus/打字机/字数；主题；Word/图片导出；图床（四期落地） |
 | 默认视图 | **hybrid（混合）** |
 | 降级保留 | `source`（CM6 全源码）、`split`（一期双栏） |
 | 落盘 | 始终标准 `.md` |
-| 壳层 | 无中间工具栏；原生菜单 + Typora 风图标 `StatusBar` |
+| 壳层 | 无中间工具栏；原生菜单 + 图标 `StatusBar` |
 
 `Ctrl+/`：混合 → 源码 → 双栏 → 混合。
 
@@ -34,7 +34,7 @@
 | **M4 主题** | 内置五套 + 自定义 CSS 导入/文件夹；prefs；CM/Mermaid 明暗 | **完成** |
 | **M4 导出** | Word（.doc）/ 图片（.png）；编排见 `lib/export/runExports` | **完成** |
 | **局部语法糖** | 选中露图片/公式/Mermaid 源码；光标露分隔符；空标题始终露 `#` | **完成** |
-| **M4 余量** | 图床 | **⏸ 预留暂不做** |
+| **M4 图床** | PicGo / 自定义 URL 多配置 + 管理 UI | **完成**（四期 F3） |
 
 ## 改造原则
 
@@ -76,7 +76,7 @@
 - 图片：印刷样式渲染后 `html-to-image` 截为 PNG（2x）
 - 与 HTML/PDF 相同：未保存文档时相对路径图片需确认
 
-## 局部语法糖（Typora 风）
+## 局部语法糖
 
 实现：`src/lib/editor/hybrid/*`（入口兼容 `hybridSourceMarks.ts`）。
 
@@ -87,6 +87,7 @@
 
 ## 建议下一迭代
 
-1. **预留**：Vim、Crepe 切 Tab、图床 — 详见 [PROGRESS.md](./PROGRESS.md)「预留 / 已知债」（均暂不排期）  
+1. 手测 / 内测反馈打磨（见 [PHASE4.md](./PHASE4.md)、[QA-SMOKE.md](./QA-SMOKE.md)）
+2. **预留暂不排期**：Vim、移动端壳、签名/公证 — 见 [PROGRESS.md](./PROGRESS.md)
 
-已还债：多表格 DOM 匹配、Shiki 随明暗、帮助（关于 / F1）、工程拆分与依赖瘦身、i18n 编辑器层。
+已还债：多表格 DOM 匹配、Shiki 随明暗、帮助（关于 / F1）、工程拆分与依赖瘦身、i18n 编辑器层、图床管理、Crepe 切 Tab 缓存。

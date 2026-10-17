@@ -1,6 +1,6 @@
 # 开发进度日志
 
-> 对照仓库代码盘点。最近核对：**2026-08-09**。
+> 对照仓库代码盘点。最近核对：**2026-10-17**。
 
 ## 总览
 
@@ -8,10 +8,11 @@
 |---|---|---|
 | 工程基建 | Tauri2 + Vue3 + pnpm 锁定 + 插件 | **完成** |
 | 一期 MVP（方案 B 双栏） | 见 [ROADMAP.md](./ROADMAP.md) | **完成（含打磨）** |
-| 二期 | WYSIWYG（Milkdown Crepe）对标 Typora | **核心完成 · 混合源码条收尾** |
+| 二期 | WYSIWYG（Milkdown Crepe 混合编辑） | **核心完成 · 混合源码条收尾** |
 | 三期 | 会话 / 全局搜索 / Vim | **会话·搜索·i18n 完成 · Vim 预留** |
 | 工程 | 模块拆分 / 依赖瘦身 / 冒烟 | **整理完成 · P0 QA 已验** |
 | 分发 | Windows NSIS + CI 三平台 Release（暂不签名） | **持续进行** |
+| 四期 | 安全 / 主题 / 口碑 / 差异化（桌面） | **桌面项已落地**（移动端壳预留，见 [PHASE4.md](./PHASE4.md)） |
 
 ## 已完成清单
 
@@ -28,13 +29,16 @@
 | Welcome 被真文件替换 | ✅ | `tabs.openOrFocus` |
 | 原生菜单 + 快捷键（防双触发） | ✅ | `appMenu` + `useMenuBridge`（无 Toolbar） |
 | Ctrl+Tab 切标签 | ✅ | `useMenuBridge` |
-| 窗口几何持久化 + workArea 钳制 | ✅ | `lib/window/geometry` + `useWindowLifecycle` |
+| 窗口几何持久化 + workArea 钳制 | ✅ | `geometry` + `useWindowLifecycle`；启动：`window_geom.rs` + `bootstrapGeometry`（壳层就绪后再 show） |
+| Crepe 切 Tab 缓存 | ✅ | `EditorWorkspace` LRU≤6；`HybridEditor` 延迟挂载 |
+| 图床管理 UI | ✅ | `ImageHostDialog`；多配置；Crepe/粘贴/拖图同路径 |
+| 四期桌面（安全/主题/口碑/差异化） | ✅ | 见 [PHASE4.md](./PHASE4.md) |
 | 外部文件变更提示重载 | ✅ | `useExternalFileWatch` |
 | 导出 HTML / PDF（Typst） | ✅ | 见下 |
 | 导出 Word / 图片 | ✅ | `wordExport` / `imageExport`；编排 `runExports`；菜单文件 |
 | 查找匹配计数 / 全部替换确认 | ✅ | SearchBar |
 | Crepe 混合编辑（M1–M3） | ✅ | `HybridEditor` + Focus / 打字机 / 字数 |
-| Typora 风局部语法糖 | ✅ | `src/lib/editor/hybrid/*` |
+| 局部语法糖（选中露源码） | ✅ | `src/lib/editor/hybrid/*` |
 | **混合源码条 UX（08-09 收尾）** | ✅ | 见下节 |
 | 工程整理 | ✅ | hybrid 拆分；去无用依赖；`useDocumentActions` 瘦身 |
 | 布局精简 | ✅ | 仅 `StatusBar`（图标）；去中间工具栏 / `MenuChrome` |
@@ -76,17 +80,7 @@
 
 ## 预留 / 已知债
 
-> **暂不排期**。有明确用户痛点或压测卡顿再开。
-
-### Crepe 混合 · 切 Tab 性能
-
-| 项 | 说明 |
-|---|---|
-| **现状** | `EditorWorkspace`：`HybridEditor` 以 `:key="activeId(+locale)"` 隔离；切 Tab = 卸载旧实例（flush）+ 新建 Crepe |
-| **风险** | 大文档下 `Crepe.create()` 仍占主线程；`await` 不能搬到 Worker（需 DOM） |
-| **可选方案 A** | 轻量：先绘壳 /「加载中」，`rAF` 或短延迟再挂载 |
-| **可选方案 B** | 根治：未激活 Tab **缓存 Crepe 实例**（隐藏不销毁） |
-| **触发** | QA 大文档压测或用户反馈「切 Tab 明显卡」后再开 |
+> **暂不排期**。有明确需求或正式对外再开。
 
 ### Vim 编辑模式
 
@@ -96,20 +90,34 @@
 | **建议 MVP** | 仅 **源码 / 双栏** CM6 + `@replit/codemirror-vim`；混合全文 Vim 另议 |
 | **触发** | 明确有源码侧 Vim 需求再开 |
 
-### 图床 / 图片管理
+### 移动端壳
 
 | 项 | 说明 |
 |---|---|
-| **现状** | 本地 `./assets/` 拖贴已够用；无远程图床 |
-| **触发** | 明确有远程图 / 集中管理需求再开 |
+| **现状** | 仅有 Tauri mobile 入口桩 |
+| **触发** | 后续跨平台扩展有明确需求再开 |
+
+### 代码签名 / Apple 公证
+
+| 项 | 说明 |
+|---|---|
+| **现状** | CI 三平台产物**暂不签名** |
+| **触发** | 正式对外分发再开 |
+
+### 已知限制（已落地能力的尾巴）
+
+| 项 | 说明 |
+|---|---|
+| Crepe 大文档 | 首次打开某 Tab 仍占主线程；缓存 LRU≤6，内存随打开 Tab 上升 |
+| 图床 | 协议兼容 PicGo Server multipart；非通用 OAuth 图床 SDK |
 
 ## 建议下一迭代
 
 | 优先级 | 项 |
 |---|---|
-| **持续** | CI 三平台 Release / Windows 本机 NSIS **内测分发**与反馈收集 |
+| **持续** | 四期手测 + CI 三平台 Release / NSIS **内测分发** |
 | **按需** | 内测反馈驱动的小修复 / 打磨 |
-| **预留** | Vim / Crepe 切 Tab / 图床；代码签名 / Apple 公证（暂不排期） |
+| **预留** | 移动端壳；Vim；代码签名 / Apple 公证 |
 
 ## 迭代记录
 
@@ -145,3 +153,11 @@
 | 2026-08-09 | 四次风险：N-06 cache.pos；R-05 `recentActions` 清理；N-07 调用点确认 |
 | 2026-08-09 | **P0 QA-SMOKE 已验**；进入 Windows NSIS **持续内测分发** |
 | 2026-08-09 | **CI 三平台 Release**：`.github/workflows/release.yml`（Win NSIS / macOS DMG / Linux AppImage+deb；暂不签名） |
+| 2026-10-17 | **四期立项**：范围写入 [PHASE4.md](./PHASE4.md)（安全基线 + 预览主题兼容） |
+| 2026-10-17 | **四期第一批**：fs/asset scope 收敛 + `grant_user_path`；生产 CSP 去 `unsafe-eval`；预览 `#write` / 内容类名；Release 体积警告 |
+| 2026-10-17 | **四期第二批**：表格粘贴/删行；PicGo；源码英文拼写；预览块缓存；Win11 Mica/Acrylic |
+| 2026-10-17 | **四期第三批（桌面）**：Ollama 本地 AI；保存快照/恢复；`[[wiki-link]]` + 反链侧栏；移动端延后 |
+| 2026-10-17 | **四期桌面余量**：Ollama 模型子菜单；快照列表对话框；当前文件 Git 只读时间线 |
+| 2026-10-17 | **U3 自绘标题栏**：无系统边框 + 拖拽/三键；prefs / 视图菜单可切回系统装饰 |
+| 2026-10-17 | **Crepe 切 Tab 缓存** + **图床管理 UI**（多配置）；移动端壳改预留 |
+| 2026-10-17 | **启动窗口尺寸**：Rust `window_geom` + 延后 `show`，避免先小后大；文档小债对齐 |
