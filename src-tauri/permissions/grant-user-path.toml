@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-grant-user-path"
+description = "允许把用户选中的路径加入文件与资源协议范围"
+commands.allow = ["grant_user_path"]

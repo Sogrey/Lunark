@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-set-window-material"
+description = "允许设置窗口材质（Mica / Acrylic）"
+commands.allow = ["set_window_material"]

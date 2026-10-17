@@ -15,7 +15,7 @@ package-lock.json
 yarn.lock
 bun.lockb
 bun.lock
-tmp
+.temp
 
 # Editor directories and files
 .vscode/*
@@ -27,3 +27,10 @@ tmp
 *.njsproj
 *.sln
 *.sw?
+
+# ⚠️ Typora 逆向衍生资产全部位于 .temp/typora-assets/（版权受限于 Typora 的 CSS/主题/图标字体/位图/conf 模板，
+# 以及配套的 TYPORA-ASSETS.md、PHASE4-EVOLUTION.md、class-map.json），由上方 '.temp' 规则统一忽略——
+# 仅开发本地可见，禁止提交/分发，含四期路线文档整体不入库。
+# 注：class-map.json（选择器约定统计）与 PHASE4-EVOLUTION.md 本身法律上可入库，如需公开请单独移回 docs/ 并复查链接。
+# 若未来复用 OFL 字体（Open Sans 等）或 MIT 图标库（ionicons），单独建目录分发并附各自 LICENSE，勿从 .temp 原样搬。
+

@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-git-file-log"
+description = "允许读取当前文件的 git 提交历史"
+commands.allow = ["git_file_log", "git_show_file"]

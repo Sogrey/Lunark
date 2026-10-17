@@ -188,6 +188,42 @@ jobs:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: ${{ matrix.args }}
 
+      - name: Record bundle sizes
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "## Bundle sizes (${{ matrix.name }})" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| File | Size (MB) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---:|" >> "$GITHUB_STEP_SUMMARY"
+          shopt -s nullglob
+          files=(
+            src-tauri/target/**/release/bundle/nsis/*
+            src-tauri/target/**/release/bundle/dmg/*
+            src-tauri/target/**/release/bundle/appimage/*
+            src-tauri/target/**/release/bundle/deb/*
+          )
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "| _(none)_ | — |" >> "$GITHUB_STEP_SUMMARY"
+            echo "No bundle files found for size check."
+            exit 0
+          fi
+          WARN_NSIS_MB=15
+          for f in "${files[@]}"; do
+            [ -f "$f" ] || continue
+            bytes=$(wc -c < "$f" | tr -d ' ')
+            mb=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b/1024/1024 }')
+            base=$(basename "$f")
+            echo "| \`$base\` | $mb |" >> "$GITHUB_STEP_SUMMARY"
+            echo "size $base = ${mb} MB"
+            if [[ "$f" == *"/nsis/"* ]] || [[ "$base" == *-setup.exe ]]; then
+              over=$(awk -v mb="$mb" -v lim="$WARN_NSIS_MB" 'BEGIN { print (mb+0 > lim+0) ? 1 : 0 }')
+              if [ "$over" = "1" ]; then
+                echo "::warning title=NSIS size::Windows NSIS $base is ${mb} MB (soft limit ${WARN_NSIS_MB} MB). Warn only — does not fail the job."
+              fi
+            fi
+          done
+
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
         with:

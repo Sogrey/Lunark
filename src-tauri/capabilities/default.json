@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Lunark main window — local Markdown editor needs dialog + broad fs for user files",
+  "description": "Lunark main window — dialog plus home-directory fs; extra paths are granted at runtime",
   "windows": ["main"],
   "permissions": [
     "core:default",
@@ -12,6 +12,13 @@
     "core:window:allow-set-position",
     "core:window:allow-show",
     "core:window:allow-hide",
+    "core:window:allow-minimize",
+    "core:window:allow-maximize",
+    "core:window:allow-unmaximize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-is-maximized",
+    "core:window:allow-start-dragging",
+    "core:window:allow-set-decorations",
     "core:window:allow-outer-size",
     "core:window:allow-outer-position",
     "core:window:allow-scale-factor",
@@ -30,11 +37,30 @@
     "fs:allow-remove",
     "fs:allow-stat",
     "allow-markdown-to-pdf",
+    "allow-grant-user-path",
+    "allow-set-window-material",
+    "allow-git-file-log",
     {
       "identifier": "fs:scope",
       "allow": [
-        { "path": "**" },
-        { "path": "**/*" }
+        { "path": "$HOME/**" },
+        { "path": "$HOME/**/*" },
+        { "path": "$APPDATA/**" },
+        { "path": "$APPDATA/**/*" },
+        { "path": "$APPCONFIG/**" },
+        { "path": "$APPCONFIG/**/*" },
+        { "path": "$APPLOCALDATA/**" },
+        { "path": "$APPLOCALDATA/**/*" },
+        { "path": "$DOCUMENT/**" },
+        { "path": "$DOCUMENT/**/*" },
+        { "path": "$DESKTOP/**" },
+        { "path": "$DESKTOP/**/*" },
+        { "path": "$DOWNLOAD/**" },
+        { "path": "$DOWNLOAD/**/*" },
+        { "path": "$PICTURE/**" },
+        { "path": "$PICTURE/**/*" },
+        { "path": "$TEMP/**" },
+        { "path": "$TEMP/**/*" }
       ]
     }
   ]
