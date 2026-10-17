@@ -180,6 +180,18 @@ export function insertRow(
   return { ...table, lines, end: table.start + lines.length };
 }
 
+/** 删除正文行（≥2）；只剩表头+分隔行时返回 null，由调用方删整表 */
+export function deleteRow(
+  table: MdTableBlock,
+  row: number,
+): MdTableBlock | null {
+  if (row < 2 || row >= table.lines.length) return table;
+  if (table.lines.length <= 3) return null;
+  const lines = [...table.lines];
+  lines.splice(row, 1);
+  return { ...table, lines, end: table.start + lines.length };
+}
+
 export function insertColumn(
   table: MdTableBlock,
   at: number,

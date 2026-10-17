@@ -6,6 +6,7 @@ import { Crepe, type CrepeConfig } from "@milkdown/crepe";
 import { ElMessage } from "element-plus";
 import { useEditorStore } from "@/stores/editor";
 import { isImageFile, saveDroppedImages } from "@/lib/fs/imageDrop";
+import { uploadFilesToPicgo } from "@/lib/fs/picgo";
 import { renderMermaidSvg } from "@/lib/markdown/mermaid";
 import { t } from "@/lib/i18n";
 
@@ -37,12 +38,25 @@ async function resolveLocalImageUrl(url: string): Promise<string> {
   }
 }
 
-/** 写入 ./assets/，返回 Markdown 可用的相对路径 */
+/** 远程图床优先，失败或未开启则写入 ./assets/；返回 URL 或相对路径 */
 async function uploadImageFile(file: File): Promise<string> {
   if (!isImageFile(file)) {
     throw new Error(t("msg.imageOnly"));
   }
   const editor = useEditorStore();
+  if (editor.picgoEnabled) {
+    try {
+      const { urls } = await uploadFilesToPicgo(
+        [file],
+        editor.picgoEndpoint,
+      );
+      if (urls[0]) return urls[0];
+    } catch (e) {
+      ElMessage.warning(
+        e instanceof Error ? e.message : t("msg.picgoFail"),
+      );
+    }
+  }
   if (!editor.filePath) {
     ElMessage.warning(t("msg.saveDocBeforeImage"));
     throw new Error(t("msg.docUnsaved"));

@@ -2,6 +2,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { readDir } from "@tauri-apps/plugin-fs";
 import { join } from "@tauri-apps/api/path";
 import { fileBasename, requireTauri } from "@/lib/fs/documentIo";
+import { grantUserPath } from "@/lib/fs/scope";
 import { t } from "@/lib/i18n";
 
 const SKIP_DIRS = new Set([
@@ -39,7 +40,9 @@ export async function pickOpenFolder(): Promise<string | null> {
     title: t("msg.dialogOpenFolder"),
   });
   if (selected === null) return null;
-  return typeof selected === "string" ? selected : selected[0] ?? null;
+  const path = typeof selected === "string" ? selected : selected[0] ?? null;
+  if (path) await grantUserPath(path);
+  return path;
 }
 
 export async function buildMarkdownTree(
@@ -47,6 +50,7 @@ export async function buildMarkdownTree(
   depth = 0,
 ): Promise<TreeNode[]> {
   requireTauri();
+  if (depth === 0) await grantUserPath(root);
   if (depth > MAX_DEPTH) return [];
 
   let entries;

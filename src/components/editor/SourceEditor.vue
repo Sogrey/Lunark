@@ -20,6 +20,7 @@ import { bracketMatching } from "@codemirror/language";
 import { createSourceThemeCompartment } from "@/lib/editor/nightTheme";
 import { imageInputExtension } from "@/lib/editor/imageInput";
 import { createTypewriterCompartment } from "@/lib/editor/typewriterCm";
+import { createSpellcheckCompartment } from "@/lib/editor/spellcheckCm";
 import {
   getTabEditorState,
   setTabEditorState,
@@ -42,6 +43,7 @@ let view: EditorView | null = null;
 let applyingExternal = false;
 
 const typewriter = createTypewriterCompartment();
+const spellcheck = createSpellcheckCompartment();
 const sourceTheme = createSourceThemeCompartment(theme.isDark);
 const cmBridge = createCmFormatBridge(() => view);
 
@@ -57,6 +59,7 @@ const extensions = [
   sourceTheme.initial,
   EditorView.lineWrapping,
   typewriter.initial(editor.typewriterMode),
+  spellcheck.initial(editor.spellCheckEnabled),
   keymap.of([
     ...defaultKeymap,
     ...historyKeymap,
@@ -118,6 +121,13 @@ watch(
   () => editor.typewriterMode,
   (enabled) => {
     if (view) typewriter.setEnabled(view, enabled);
+  },
+);
+
+watch(
+  () => editor.spellCheckEnabled,
+  (enabled) => {
+    if (view) spellcheck.setEnabled(view, enabled);
   },
 );
 

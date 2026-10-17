@@ -12,9 +12,15 @@ import {
   saveImagesFromPaths,
 } from "@/lib/fs/imageDrop";
 import {
+  toMarkdownImagesFromUrls,
+  uploadFilesToPicgo,
+  uploadPathsToPicgo,
+} from "@/lib/fs/picgo";
+import {
   insertTextAtCursor,
   joinImageSnippets,
 } from "@/lib/editor/insertText";
+import { clipboardToMarkdownTable } from "@/lib/editor/tablePaste";
 import { t } from "@/lib/i18n";
 
 function filesFromList(list: FileList | File[] | null | undefined): File[] {
@@ -62,16 +68,27 @@ export async function insertDroppedOrPastedImages(
   if (files.length === 0) return false;
 
   const editor = useEditorStore();
-  if (!editor.filePath) {
-    ElMessage.warning(
-      source === "paste"
-        ? t("msg.saveBeforePasteImage")
-        : t("msg.saveBeforeDropImage"),
-    );
-    return true;
-  }
 
   try {
+    if (editor.picgoEnabled) {
+      try {
+        const { urls } = await uploadFilesToPicgo(files, editor.picgoEndpoint);
+        return await finishInsert(toMarkdownImagesFromUrls(urls), source);
+      } catch (e) {
+        ElMessage.warning(
+          e instanceof Error ? e.message : t("msg.picgoFail"),
+        );
+        /* fall through to local assets */
+      }
+    }
+    if (!editor.filePath) {
+      ElMessage.warning(
+        source === "paste"
+          ? t("msg.saveBeforePasteImage")
+          : t("msg.saveBeforeDropImage"),
+      );
+      return true;
+    }
     const snippets = await saveDroppedImages(files, editor.filePath);
     return await finishInsert(snippets, source);
   } catch (e) {
@@ -93,13 +110,28 @@ export async function insertImagesFromOsPaths(
   if (paths.length === 0) return false;
 
   const editor = useEditorStore();
-  if (!editor.filePath) {
-    ElMessage.warning(t("msg.saveBeforeDropImage"));
-    return true;
-  }
+  const imagePaths = paths.filter(isImagePath);
+  if (imagePaths.length === 0) return false;
 
   try {
-    const snippets = await saveImagesFromPaths(paths, editor.filePath);
+    if (editor.picgoEnabled) {
+      try {
+        const { urls } = await uploadPathsToPicgo(
+          imagePaths,
+          editor.picgoEndpoint,
+        );
+        return await finishInsert(toMarkdownImagesFromUrls(urls), "drop");
+      } catch (e) {
+        ElMessage.warning(
+          e instanceof Error ? e.message : t("msg.picgoFail"),
+        );
+      }
+    }
+    if (!editor.filePath) {
+      ElMessage.warning(t("msg.saveBeforeDropImage"));
+      return true;
+    }
+    const snippets = await saveImagesFromPaths(imagePaths, editor.filePath);
     if (snippets.length === 0) {
       ElMessage.info(t("msg.noImageRecognized"));
       return true;
@@ -116,6 +148,10 @@ export async function insertImagesFromOsPaths(
  */
 export async function handleOsFileDrop(paths: string[]): Promise<void> {
   if (paths.length === 0) return;
+  const { grantUserPath } = await import("@/lib/fs/scope");
+  for (const path of paths) {
+    await grantUserPath(path);
+  }
 
   const mdPaths = paths.filter(isMarkdownPath);
   const imagePaths = paths.filter(isImagePath);
@@ -201,20 +237,40 @@ export function bindTauriFileDrop(opts: DropHighlight): () => void {
 export function imageInputExtension() {
   return EditorView.domEventHandlers({
     paste(event) {
-      const items = event.clipboardData?.items;
-      if (!items?.length) return false;
+      const data = event.clipboardData;
+      if (!data) return false;
 
       const files: File[] = [];
-      for (const item of Array.from(items)) {
+      for (const item of Array.from(data.items ?? [])) {
         if (item.kind !== "file") continue;
         const file = item.getAsFile();
         if (file && isImageFile(file)) files.push(file);
       }
-      if (files.length === 0) return false;
+      if (files.length > 0) {
+        event.preventDefault();
+        void insertDroppedOrPastedImages(files, "paste");
+        return true;
+      }
 
-      event.preventDefault();
-      void insertDroppedOrPastedImages(files, "paste");
-      return true;
+      const text = data.getData("text/plain");
+      const html = data.getData("text/html");
+      const tableMd = clipboardToMarkdownTable(text, html || null);
+      if (tableMd) {
+        event.preventDefault();
+        const editor = useEditorStore();
+        const view = editor.cmView;
+        if (view) {
+          insertTextAtCursor(
+            view,
+            tableMd.endsWith("\n") ? tableMd : `${tableMd}\n`,
+          );
+          editor.setContent(view.state.doc.toString());
+          ElMessage.success(t("msg.tablePasted"));
+        }
+        return true;
+      }
+
+      return false;
     },
   });
 }

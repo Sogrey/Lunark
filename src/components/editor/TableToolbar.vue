@@ -21,6 +21,7 @@ import {
   type ColAlign,
   type MdTableBlock,
   deleteColumn,
+  deleteRow,
 } from "@/lib/editor/mdTable";
 
 const { t } = useI18n();
@@ -177,6 +178,17 @@ function onDeleteCol() {
   commit(next);
 }
 
+function onDeleteRow() {
+  if (!tableRef.value) return;
+  const next = deleteRow(tableRef.value, rowIndex.value);
+  menuOpen.value = false;
+  if (!next) {
+    commit(null, "delete");
+    return;
+  }
+  commit(next);
+}
+
 async function onCopyTable() {
   if (!tableRef.value) return;
   await navigator.clipboard.writeText(tableRef.value.lines.join("\n"));
@@ -303,6 +315,9 @@ watch(
               {{ t("editor.moveColRight") }} <kbd>Alt+→</kbd>
             </button>
             <div class="sep" />
+            <button type="button" @click="onDeleteRow">
+              {{ t("editor.deleteRow") }}
+            </button>
             <button type="button" @click="onDeleteCol">
               {{ t("editor.deleteCol") }}
             </button>

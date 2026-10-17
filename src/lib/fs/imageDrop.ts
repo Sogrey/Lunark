@@ -2,6 +2,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import { basename, dirname, join } from "@tauri-apps/api/path";
 import { copyFile, exists, mkdir, readFile, writeFile } from "@tauri-apps/plugin-fs";
 import { t } from "@/lib/i18n";
+import { grantUserPath } from "@/lib/fs/scope";
 
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i;
 
@@ -122,6 +123,7 @@ export async function saveImagesFromPaths(
   const imagePaths = paths.filter(isImagePath);
 
   for (const src of imagePaths) {
+    await grantUserPath(src);
     const rawName = await basename(src);
     const name = uniqueName(sanitizeFileName(rawName || "image.png"), used);
     const dest = await join(assetsDir, name);

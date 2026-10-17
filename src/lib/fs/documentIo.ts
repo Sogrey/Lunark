@@ -2,6 +2,7 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import { isTauri } from "@tauri-apps/api/core";
 import { t } from "@/lib/i18n";
+import { grantUserPath } from "@/lib/fs/scope";
 
 const MD_FILTERS = [
   {
@@ -118,7 +119,9 @@ export async function pickOpenMarkdown(): Promise<string | null> {
     filters: MD_FILTERS,
   });
   if (selected === null) return null;
-  return typeof selected === "string" ? selected : selected[0] ?? null;
+  const path = typeof selected === "string" ? selected : selected[0] ?? null;
+  if (path) await grantUserPath(path);
+  return path;
 }
 
 export async function pickSaveMarkdown(
@@ -130,6 +133,7 @@ export async function pickSaveMarkdown(
     defaultPath: defaultPath ?? "Untitled.md",
     filters: MD_FILTERS,
   });
+  if (path) await grantUserPath(path);
   return path;
 }
 
@@ -137,7 +141,7 @@ export async function pickSaveHtml(
   defaultPath?: string | null,
 ): Promise<string | null> {
   requireTauri();
-  return await save({
+  const path = await save({
     title: t("msg.dialogExportHtml"),
     defaultPath: defaultPath ?? "export.html",
     filters: [
@@ -145,13 +149,15 @@ export async function pickSaveHtml(
       { name: "All", extensions: ["*"] },
     ],
   });
+  if (path) await grantUserPath(path);
+  return path;
 }
 
 export async function pickSavePdf(
   defaultPath?: string | null,
 ): Promise<string | null> {
   requireTauri();
-  return await save({
+  const path = await save({
     title: t("msg.dialogExportPdf"),
     defaultPath: defaultPath ?? "export.pdf",
     filters: [
@@ -159,13 +165,15 @@ export async function pickSavePdf(
       { name: "All", extensions: ["*"] },
     ],
   });
+  if (path) await grantUserPath(path);
+  return path;
 }
 
 export async function pickSavePng(
   defaultPath?: string | null,
 ): Promise<string | null> {
   requireTauri();
-  return await save({
+  const path = await save({
     title: t("msg.dialogExportImage"),
     defaultPath: defaultPath ?? "export.png",
     filters: [
@@ -173,13 +181,15 @@ export async function pickSavePng(
       { name: "All", extensions: ["*"] },
     ],
   });
+  if (path) await grantUserPath(path);
+  return path;
 }
 
 export async function pickSaveDocx(
   defaultPath?: string | null,
 ): Promise<string | null> {
   requireTauri();
-  return await save({
+  const path = await save({
     title: t("msg.dialogExportWord"),
     defaultPath: defaultPath ?? "export.doc",
     filters: [
@@ -187,10 +197,13 @@ export async function pickSaveDocx(
       { name: "All", extensions: ["*"] },
     ],
   });
+  if (path) await grantUserPath(path);
+  return path;
 }
 
 export async function readMarkdownFile(path: string): Promise<string> {
   requireTauri();
+  await grantUserPath(path);
   return await readTextFile(path);
 }
 
@@ -199,6 +212,7 @@ export async function writeMarkdownFile(
   content: string,
 ): Promise<void> {
   requireTauri();
+  await grantUserPath(path);
   await writeTextFile(path, content);
 }
 
@@ -207,6 +221,7 @@ export async function writeTextFileAt(
   content: string,
 ): Promise<void> {
   requireTauri();
+  await grantUserPath(path);
   await writeTextFile(path, content);
 }
 
@@ -215,5 +230,6 @@ export async function writeBinaryFileAt(
   data: Uint8Array,
 ): Promise<void> {
   requireTauri();
+  await grantUserPath(path);
   await writeFile(path, data);
 }

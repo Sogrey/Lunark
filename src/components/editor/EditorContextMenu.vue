@@ -3,9 +3,12 @@ import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { isTauri } from "@tauri-apps/api/core";
+import { ElMessage } from "element-plus";
 import { getFormatBridge } from "@/lib/editor/formatBridge";
+import { runEditorAiAction } from "@/lib/ai/runAiAction";
+import type { AiAction } from "@/lib/ai/ollama";
 
-type Submenu = "copyAs" | "paragraph" | "insert" | null;
+type Submenu = "copyAs" | "paragraph" | "insert" | "ai" | null;
 
 const { t } = useI18n();
 const open = ref(false);
@@ -83,6 +86,10 @@ function run(fn: () => void) {
   }
 }
 
+function runAi(action: AiAction) {
+  void runEditorAiAction(action);
+}
+
 async function cut() {
   const b = bridge();
   if (!b) return;
@@ -102,7 +109,26 @@ async function paste() {
   const b = bridge();
   if (!b) return;
   try {
+    const { clipboardToMarkdownTable } = await import("@/lib/editor/tablePaste");
+    let html: string | null = null;
+    try {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        if (item.types.includes("text/html")) {
+          html = await (await item.getType("text/html")).text();
+          break;
+        }
+      }
+    } catch {
+      /* ignore */
+    }
     const text = await navigator.clipboard.readText();
+    const tableMd = clipboardToMarkdownTable(text, html);
+    if (tableMd) {
+      b.replaceSelection(tableMd.endsWith("\n") ? tableMd : `${tableMd}\n`);
+      ElMessage.success(t("msg.tablePasted"));
+      return;
+    }
     if (text) b.replaceSelection(text);
   } catch {
     /* denied */
@@ -380,6 +406,16 @@ onUnmounted(() => {
         {{ t("editor.insert") }}
         <span class="arrow">›</span>
       </button>
+      <button
+        type="button"
+        class="row has-sub"
+        role="menuitem"
+        @mouseenter="openSub('ai', $event)"
+        @click="openSub('ai', $event)"
+      >
+        {{ t("editor.aiAssist") }}
+        <span class="arrow">›</span>
+      </button>
     </div>
 
     <div
@@ -465,6 +501,43 @@ onUnmounted(() => {
       </button>
       <button type="button" class="row" @click="run(() => insertPara('below'))">
         {{ t("editor.paraBelow") }}
+      </button>
+    </div>
+
+    <div
+      v-if="open && submenu === 'ai'"
+      class="ctx-sub"
+      :style="subStyle"
+      role="menu"
+      @mouseleave="submenu = null"
+    >
+      <button
+        type="button"
+        class="row"
+        @click="run(() => void runAi('rewrite'))"
+      >
+        {{ t("editor.aiRewrite") }}
+      </button>
+      <button
+        type="button"
+        class="row"
+        @click="run(() => void runAi('continue'))"
+      >
+        {{ t("editor.aiContinue") }}
+      </button>
+      <button
+        type="button"
+        class="row"
+        @click="run(() => void runAi('translate'))"
+      >
+        {{ t("editor.aiTranslate") }}
+      </button>
+      <button
+        type="button"
+        class="row"
+        @click="run(() => void runAi('summarize'))"
+      >
+        {{ t("editor.aiSummarize") }}
       </button>
     </div>
   </Teleport>
