@@ -44,6 +44,7 @@ const ko: MessageSchema = {
     picgo: "이미지 호스트로 업로드",
     imageHosts: "이미지 호스트 관리…",
     customTitlebar: "사용자 지정 제목 표시줄",
+    menuButton: "제목 표시줄 메뉴 단추",
     windowMaterialOff: "창 효과: 끔",
     windowMaterialMica: "창 효과: Mica",
     windowMaterialAcrylic: "창 효과: Acrylic",
@@ -378,6 +379,8 @@ const ko: MessageSchema = {
     gitEmpty: "커밋 없음(또는 저장소 아님)",
   },
   titlebar: {
+    menu: "메뉴",
+    menuHint: "메뉴 (Alt)",
     minimize: "최소화",
     maximize: "최대화",
     restore: "이전 크기로",

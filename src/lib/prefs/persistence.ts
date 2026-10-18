@@ -66,6 +66,7 @@ function collectPrefs(
     activeImageHostId: editor.activeImageHostId,
     windowMaterial: editor.windowMaterial,
     customTitlebar: editor.customTitlebar,
+    menuButtonVisible: editor.menuButtonVisible,
     ollamaEnabled: editor.ollamaEnabled,
     ollamaEndpoint: editor.ollamaEndpoint,
     ollamaModel: editor.ollamaModel,
@@ -193,6 +194,7 @@ export function usePrefsPersistence() {
     editor.setPicgoEndpoint(prefs.picgoEndpoint);
     editor.setWindowMaterial(prefs.windowMaterial);
     editor.setCustomTitlebar(prefs.customTitlebar);
+    editor.setMenuButtonVisible(prefs.menuButtonVisible);
     editor.setOllamaEnabled(prefs.ollamaEnabled);
     editor.setOllamaEndpoint(prefs.ollamaEndpoint);
     editor.setOllamaModel(prefs.ollamaModel);
@@ -242,6 +244,7 @@ export function usePrefsPersistence() {
             .join("\0"),
           editor.windowMaterial,
           editor.customTitlebar,
+          editor.menuButtonVisible,
           editor.ollamaEnabled,
           editor.ollamaEndpoint,
           editor.ollamaModel,

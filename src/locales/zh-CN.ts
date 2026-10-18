@@ -44,6 +44,7 @@ const zhCN: MessageSchema = {
     picgo: "图片上传到图床",
     imageHosts: "图床管理…",
     customTitlebar: "自绘标题栏",
+    menuButton: "标题栏菜单按钮",
     windowMaterialOff: "窗口材质：关闭",
     windowMaterialMica: "窗口材质：Mica",
     windowMaterialAcrylic: "窗口材质：亚克力",
@@ -374,6 +375,8 @@ const zhCN: MessageSchema = {
     gitEmpty: "无提交记录（或不在仓库内）",
   },
   titlebar: {
+    menu: "菜单",
+    menuHint: "菜单（Alt）",
     minimize: "最小化",
     maximize: "最大化",
     restore: "还原",

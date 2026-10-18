@@ -44,6 +44,7 @@ const zhTW: MessageSchema = {
     picgo: "圖片上傳到圖床",
     imageHosts: "圖床管理…",
     customTitlebar: "自繪標題列",
+    menuButton: "標題列選單按鈕",
     windowMaterialOff: "視窗材質：關閉",
     windowMaterialMica: "視窗材質：Mica",
     windowMaterialAcrylic: "視窗材質：壓克力",
@@ -374,6 +375,8 @@ const zhTW: MessageSchema = {
     gitEmpty: "無提交紀錄（或不在倉庫內）",
   },
   titlebar: {
+    menu: "選單",
+    menuHint: "選單（Alt）",
     minimize: "最小化",
     maximize: "最大化",
     restore: "還原",

@@ -7,6 +7,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isTauri } from "@tauri-apps/api/core";
 import { useI18n } from "vue-i18n";
 import { useEditorStore } from "@/stores/editor";
+import { popupAppMenu } from "@/lib/appMenu";
 
 const { t } = useI18n();
 const editor = useEditorStore();
@@ -14,6 +15,39 @@ const maximized = ref(false);
 let unlistenResize: (() => void) | null = null;
 
 const title = computed(() => editor.windowTitle);
+const menuBtn = ref<HTMLButtonElement | null>(null);
+let altDown = false;
+let altCombo = false;
+
+async function openMenu(anchor?: HTMLElement | null) {
+  const el = anchor ?? menuBtn.value;
+  if (el) {
+    const box = el.getBoundingClientRect();
+    await popupAppMenu({ x: box.left, y: box.bottom });
+    return;
+  }
+  await popupAppMenu();
+}
+
+function onKeyDown(e: KeyboardEvent) {
+  if (e.key === "Alt") {
+    altDown = true;
+    altCombo = false;
+    return;
+  }
+  if (altDown) altCombo = true;
+  if (e.key === "F10" && !e.repeat) {
+    e.preventDefault();
+    void openMenu();
+  }
+}
+
+function onKeyUp(e: KeyboardEvent) {
+  if (e.key !== "Alt") return;
+  if (altDown && !altCombo && !document.hidden) void openMenu();
+  altDown = false;
+  altCombo = false;
+}
 
 async function syncMaximized() {
   if (!isTauri()) return;
@@ -64,6 +98,8 @@ async function closeWin() {
 }
 
 onMounted(() => {
+  window.addEventListener("keydown", onKeyDown);
+  window.addEventListener("keyup", onKeyUp);
   void syncMaximized();
   if (!isTauri()) return;
   void getCurrentWindow()
@@ -76,6 +112,8 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  window.removeEventListener("keydown", onKeyDown);
+  window.removeEventListener("keyup", onKeyUp);
   unlistenResize?.();
 });
 </script>
@@ -83,6 +121,24 @@ onUnmounted(() => {
 <template>
   <header class="titlebar" data-tauri-drag-region @dblclick="onDblClick">
     <div class="brand" data-tauri-drag-region>
+      <button
+        v-if="editor.menuButtonVisible"
+        ref="menuBtn"
+        type="button"
+        class="menu-btn"
+        :aria-label="t('titlebar.menu')"
+        :title="t('titlebar.menuHint')"
+        @click.stop="openMenu($event.currentTarget as HTMLElement)"
+        @dblclick.stop
+      >
+        <svg viewBox="0 0 12 12" width="13" height="13" aria-hidden="true">
+          <path
+            d="M1.5 3h9M1.5 6h9M1.5 9h9"
+            stroke="currentColor"
+            stroke-width="1.2"
+          />
+        </svg>
+      </button>
       <span class="logo" aria-hidden="true">☽</span>
       <span class="title" :title="title">{{ title }}</span>
     </div>
@@ -185,6 +241,25 @@ onUnmounted(() => {
   -webkit-app-region: drag;
 }
 
+.menu-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 24px;
+  margin-right: 2px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--control-text-color, #8b9198);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: default;
+  -webkit-app-region: no-drag;
+}
+.menu-btn:hover {
+  background: rgba(127, 127, 127, 0.22);
+  color: var(--text-color, #e8ecf0);
+}
 .logo {
   flex-shrink: 0;
   opacity: 0.75;

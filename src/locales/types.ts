@@ -43,6 +43,7 @@ export type MessageSchema = {
     picgo: string;
     imageHosts: string;
     customTitlebar: string;
+    menuButton: string;
     windowMaterialOff: string;
     windowMaterialMica: string;
     windowMaterialAcrylic: string;
@@ -365,6 +366,8 @@ export type MessageSchema = {
     gitEmpty: string;
   };
   titlebar: {
+    menu: string;
+    menuHint: string;
     minimize: string;
     maximize: string;
     restore: string;

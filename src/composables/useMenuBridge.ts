@@ -53,6 +53,7 @@ const MENU_EVENTS = [
   "lunark:menu-toggle-snapshots",
   "lunark:menu-restore-snapshot",
   "lunark:menu-git-history",
+  "lunark:menu-toggle-menu-button",
   "lunark:menu-toggle-custom-titlebar",
   "lunark:menu-window-material",
   "lunark:menu-open-recent",
@@ -329,6 +330,12 @@ export function useMenuBridge() {
           window.dispatchEvent(
             new CustomEvent("lunark:history", { detail: "git" }),
           );
+        });
+        break;
+      case "lunark:menu-toggle-menu-button":
+        once("toggle-menu-button", () => {
+          editor.toggleMenuButton();
+          void refreshAppMenu();
         });
         break;
       case "lunark:menu-toggle-custom-titlebar":

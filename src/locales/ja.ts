@@ -44,6 +44,7 @@ const ja: MessageSchema = {
     picgo: "画像をホストへアップロード",
     imageHosts: "画像ホスト管理…",
     customTitlebar: "カスタムタイトルバー",
+    menuButton: "タイトルバーのメニューボタン",
     windowMaterialOff: "ウィンドウ効果：オフ",
     windowMaterialMica: "ウィンドウ効果：Mica",
     windowMaterialAcrylic: "ウィンドウ効果：Acrylic",
@@ -379,6 +380,8 @@ const ja: MessageSchema = {
     gitEmpty: "コミットなし（またはリポジトリ外）",
   },
   titlebar: {
+    menu: "メニュー",
+    menuHint: "メニュー（Alt）",
     minimize: "最小化",
     maximize: "最大化",
     restore: "元に戻す",

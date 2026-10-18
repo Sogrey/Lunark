@@ -78,6 +78,8 @@ export interface AppPrefs {
   windowMaterial: WindowMaterial;
   /** 自绘标题栏（无系统边框） */
   customTitlebar: boolean;
+  /** 标题栏菜单按钮 */
+  menuButtonVisible: boolean;
   /** 本机 Ollama 助手 */
   ollamaEnabled: boolean;
   ollamaEndpoint: string;
@@ -110,6 +112,7 @@ export const DEFAULT_PREFS: AppPrefs = {
   activeImageHostId: createDefaultImageHosts()[0]!.id,
   windowMaterial: "off",
   customTitlebar: true,
+  menuButtonVisible: true,
   ollamaEnabled: false,
   ollamaEndpoint: DEFAULT_OLLAMA_ENDPOINT,
   ollamaModel: DEFAULT_OLLAMA_MODEL,
@@ -249,6 +252,7 @@ export function normalizePrefs(raw: unknown): AppPrefs {
       ? p.windowMaterial
       : "off",
     customTitlebar: p.customTitlebar !== false,
+    menuButtonVisible: p.menuButtonVisible !== false,
     ollamaEnabled: p.ollamaEnabled === true,
     ollamaEndpoint:
       typeof p.ollamaEndpoint === "string" && p.ollamaEndpoint.trim()

@@ -50,6 +50,8 @@ export const useEditorStore = defineStore("editor", () => {
   const windowMaterial = ref<"off" | "mica" | "acrylic">("off");
   /** 自绘标题栏（关系统边框）；默认开 */
   const customTitlebar = ref(true);
+  /** 标题栏上的菜单按钮；关掉后仍可用 Alt 弹出 */
+  const menuButtonVisible = ref(true);
   const ollamaEnabled = ref(false);
   const ollamaEndpoint = ref("http://127.0.0.1:11434");
   const ollamaModel = ref("llama3.2");
@@ -217,6 +219,14 @@ export const useEditorStore = defineStore("editor", () => {
     customTitlebar.value = !customTitlebar.value;
   }
 
+  function setMenuButtonVisible(visible: boolean) {
+    menuButtonVisible.value = visible;
+  }
+
+  function toggleMenuButton() {
+    menuButtonVisible.value = !menuButtonVisible.value;
+  }
+
   function setOllamaEnabled(enabled: boolean) {
     ollamaEnabled.value = enabled;
   }
@@ -344,6 +354,7 @@ export const useEditorStore = defineStore("editor", () => {
     activeImageHostId,
     windowMaterial,
     customTitlebar,
+    menuButtonVisible,
     ollamaEnabled,
     ollamaEndpoint,
     ollamaModel,
@@ -377,6 +388,8 @@ export const useEditorStore = defineStore("editor", () => {
     setWindowMaterial,
     setCustomTitlebar,
     toggleCustomTitlebar,
+    setMenuButtonVisible,
+    toggleMenuButton,
     setOllamaEnabled,
     toggleOllama,
     setOllamaEndpoint,

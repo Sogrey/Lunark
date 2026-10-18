@@ -73,6 +73,28 @@ export async function setupAppMenu(): Promise<void> {
   await refreshAppMenu();
 }
 
+let currentAppMenu: Menu | null = null;
+
+/** 在自绘标题栏下弹出应用菜单（原生菜单栏被无边框窗口隐藏）。 */
+export async function popupAppMenu(at?: {
+  x: number;
+  y: number;
+}): Promise<void> {
+  if (!isTauri()) return;
+  if (!currentAppMenu) await refreshAppMenu();
+  if (!currentAppMenu) return;
+  if (at) {
+    const { LogicalPosition } = await import("@tauri-apps/api/dpi");
+    const { getCurrentWindow } = await import("@tauri-apps/api/window");
+    await currentAppMenu.popup(
+      new LogicalPosition(at.x, at.y),
+      getCurrentWindow(),
+    );
+    return;
+  }
+  await currentAppMenu.popup();
+}
+
 export async function refreshAppMenu(): Promise<void> {
   if (!isTauri()) return;
 
@@ -357,6 +379,12 @@ export async function refreshAppMenu(): Promise<void> {
           action: () => emit("lunark:menu-git-history"),
         }),
         await CheckMenuItem.new({
+          id: "toggle-menu-button",
+          text: t("menu.menuButton"),
+          checked: editor.menuButtonVisible,
+          action: () => emit("lunark:menu-toggle-menu-button"),
+        }),
+        await CheckMenuItem.new({
           id: "toggle-custom-titlebar",
           text: t("menu.customTitlebar"),
           checked: editor.customTitlebar,
@@ -478,6 +506,7 @@ export async function refreshAppMenu(): Promise<void> {
     const menu = await Menu.new({
       items: [file, edit, view, themeMenu, languageMenu, help],
     });
+    currentAppMenu = menu;
     await menu.setAsAppMenu();
   } catch (e) {
     console.warn("[lunark] setupAppMenu failed", e);
