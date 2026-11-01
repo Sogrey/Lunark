@@ -279,6 +279,13 @@ export async function refreshAppMenu(): Promise<void> {
           accelerator: "CmdOrCtrl+Shift+F",
           action: () => emit("lunark:menu-find-workspace"),
         }),
+        await PredefinedMenuItem.new({ item: "Separator" }),
+        await MenuItem.new({
+          id: "command-palette",
+          text: t("menu.commandPalette"),
+          accelerator: "CmdOrCtrl+Shift+P",
+          action: () => emit("lunark:menu-command-palette"),
+        }),
       ],
     });
 
@@ -332,6 +339,13 @@ export async function refreshAppMenu(): Promise<void> {
           action: () => emit("lunark:menu-toggle-typewriter"),
         }),
         await CheckMenuItem.new({
+          id: "toggle-fullscreen",
+          text: t("menu.fullscreen"),
+          checked: editor.windowFullscreen,
+          accelerator: "F11",
+          action: () => emit("lunark:menu-toggle-fullscreen"),
+        }),
+        await CheckMenuItem.new({
           id: "toggle-status-bar",
           text: t("menu.statusBar"),
           checked: editor.statusBarVisible,
@@ -343,6 +357,12 @@ export async function refreshAppMenu(): Promise<void> {
           text: t("menu.spellCheck"),
           checked: editor.spellCheckEnabled,
           action: () => emit("lunark:menu-toggle-spellcheck"),
+        }),
+        await CheckMenuItem.new({
+          id: "toggle-code-line-numbers",
+          text: t("menu.codeLineNumbers"),
+          checked: editor.codeLineNumbers,
+          action: () => emit("lunark:menu-toggle-code-line-numbers"),
         }),
         await CheckMenuItem.new({
           id: "toggle-picgo",
@@ -499,6 +519,11 @@ export async function refreshAppMenu(): Promise<void> {
           text: t("menu.shortcuts"),
           accelerator: "F1",
           action: () => emit("lunark:help", "shortcuts"),
+        }),
+        await MenuItem.new({
+          id: "help-syntax",
+          text: t("menu.syntaxHelp"),
+          action: () => emit("lunark:help", "syntax"),
         }),
       ],
     });

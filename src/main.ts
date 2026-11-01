@@ -12,7 +12,7 @@ import "@/styles/themes/whitey.css";
 import "@/styles/themes/night-preview.css";
 import "@/styles/themes/hybrid-crepe.css";
 import "@/styles/base.css";
-import "katex/dist/katex.min.css";
+// KaTeX CSS：首次渲染公式时由 katexLazy.ensureKatexCss 注入（I13）
 import "element-plus/es/components/message/style/css";
 
 async function main() {

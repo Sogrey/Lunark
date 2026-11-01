@@ -12,6 +12,12 @@ import { isLocaleId, t } from "@/lib/i18n";
 import { persistLocale } from "@/lib/prefs/persistence";
 import { isThemeId } from "@/lib/theme/catalog";
 import { refreshAppMenu } from "@/lib/appMenu";
+import { hasImmersiveOverlay } from "@/lib/editor/immersive";
+import {
+  isWindowFullscreen,
+  setWindowFullscreen,
+  toggleWindowFullscreen,
+} from "@/lib/window/fullscreen";
 import {
   applyWindowMaterial,
   isWindowMaterial,
@@ -33,6 +39,7 @@ const MENU_EVENTS = [
   "lunark:menu-find",
   "lunark:menu-replace",
   "lunark:menu-find-workspace",
+  "lunark:menu-command-palette",
   "lunark:menu-export-html",
   "lunark:menu-export-pdf",
   "lunark:menu-export-docx",
@@ -44,8 +51,10 @@ const MENU_EVENTS = [
   "lunark:menu-toggle-sidebar",
   "lunark:menu-toggle-focus",
   "lunark:menu-toggle-typewriter",
+  "lunark:menu-toggle-fullscreen",
   "lunark:menu-toggle-status-bar",
   "lunark:menu-toggle-spellcheck",
+  "lunark:menu-toggle-code-line-numbers",
   "lunark:menu-toggle-picgo",
   "lunark:menu-image-hosts",
   "lunark:menu-toggle-ollama",
@@ -105,6 +114,44 @@ export function useMenuBridge() {
     clearRecentFiles,
     confirmCloseWithSave,
   } = useDocumentActions();
+
+  /** Focus 下侧栏被强制隐藏；再按「侧栏」应退出 Focus 并确保可见 */
+  function revealOrToggleSidebar() {
+    if (editor.focusMode) {
+      editor.setFocusMode(false);
+      if (!workspace.sidebarVisible) workspace.toggleSidebar();
+      return;
+    }
+    workspace.toggleSidebar();
+  }
+
+  async function toggleFullscreen() {
+    try {
+      const next = await toggleWindowFullscreen();
+      editor.setWindowFullscreenState(next);
+      void refreshAppMenu();
+    } catch (e) {
+      console.warn("[lunark] toggle fullscreen failed", e);
+    }
+  }
+
+  async function exitFullscreen() {
+    try {
+      await setWindowFullscreen(false);
+      editor.setWindowFullscreenState(false);
+      void refreshAppMenu();
+    } catch (e) {
+      console.warn("[lunark] exit fullscreen failed", e);
+    }
+  }
+
+  async function syncFullscreenState() {
+    try {
+      editor.setWindowFullscreenState(await isWindowFullscreen());
+    } catch {
+      /* ignore */
+    }
+  }
 
   const tauri = isTauri();
 
@@ -237,6 +284,11 @@ export function useMenuBridge() {
           workspace.setSidebarPanel("search");
         });
         break;
+      case "lunark:menu-command-palette":
+        once("command-palette", () => {
+          window.dispatchEvent(new CustomEvent("lunark:command-palette"));
+        });
+        break;
       case "lunark:menu-export-html":
         once("export-html", () => void exportHtml());
         break;
@@ -262,7 +314,7 @@ export function useMenuBridge() {
         once("mode-split", () => editor.setViewMode("split"));
         break;
       case "lunark:menu-toggle-sidebar":
-        once("toggle-sidebar", () => workspace.toggleSidebar());
+        once("toggle-sidebar", () => revealOrToggleSidebar());
         break;
       case "lunark:menu-toggle-focus":
         once("toggle-focus", () => editor.toggleFocusMode());
@@ -270,12 +322,21 @@ export function useMenuBridge() {
       case "lunark:menu-toggle-typewriter":
         once("toggle-typewriter", () => editor.toggleTypewriterMode());
         break;
+      case "lunark:menu-toggle-fullscreen":
+        once("toggle-fullscreen", () => void toggleFullscreen());
+        break;
       case "lunark:menu-toggle-status-bar":
         once("toggle-status-bar", () => editor.toggleStatusBar());
         break;
       case "lunark:menu-toggle-spellcheck":
         once("toggle-spellcheck", () => {
           editor.toggleSpellCheck();
+          void refreshAppMenu();
+        });
+        break;
+      case "lunark:menu-toggle-code-line-numbers":
+        once("toggle-code-line-numbers", () => {
+          editor.toggleCodeLineNumbers();
           void refreshAppMenu();
         });
         break;
@@ -422,6 +483,8 @@ export function useMenuBridge() {
 
   function onKeydown(e: KeyboardEvent) {
     if (e.key === "Escape") {
+      // 浮层各自 capture 处理；此处不抢，也不退出 Focus/全屏
+      if (hasImmersiveOverlay()) return;
       if (editor.searchOpen) {
         e.preventDefault();
         e.stopPropagation();
@@ -433,6 +496,12 @@ export function useMenuBridge() {
         e.preventDefault();
         e.stopPropagation();
         editor.setFocusMode(false);
+        return;
+      }
+      if (editor.windowFullscreen) {
+        e.preventDefault();
+        e.stopPropagation();
+        once("exit-fullscreen", () => void exitFullscreen());
         return;
       }
     }
@@ -459,6 +528,13 @@ export function useMenuBridge() {
       e.preventDefault();
       e.stopPropagation();
       once("toggle-typewriter", () => editor.toggleTypewriterMode());
+      return;
+    }
+
+    if (e.key === "F11") {
+      e.preventDefault();
+      e.stopPropagation();
+      once("toggle-fullscreen", () => void toggleFullscreen());
       return;
     }
 
@@ -507,6 +583,12 @@ export function useMenuBridge() {
       e.preventDefault();
       e.stopPropagation();
       once("close-tab", () => void closeActiveTab());
+    } else if (code === "KeyP" && e.shiftKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      once("command-palette", () => {
+        window.dispatchEvent(new CustomEvent("lunark:command-palette"));
+      });
     } else if (code === "KeyF" && e.shiftKey) {
       e.preventDefault();
       e.stopPropagation();
@@ -533,7 +615,7 @@ export function useMenuBridge() {
     } else if (key === "\\" || code === "Backslash") {
       e.preventDefault();
       e.stopPropagation();
-      once("toggle-sidebar", () => workspace.toggleSidebar());
+      once("toggle-sidebar", () => revealOrToggleSidebar());
     }
   }
 
@@ -546,6 +628,7 @@ export function useMenuBridge() {
             editor.viewMode,
             editor.focusMode,
             editor.typewriterMode,
+            editor.windowFullscreen,
             editor.statusBarVisible,
             workspace.sidebarVisible,
           ] as const,
@@ -559,11 +642,27 @@ export function useMenuBridge() {
       )
     : null;
 
+  let unlistenFullscreen: (() => void) | null = null;
+
   onMounted(() => {
     // capture：抢在 WebView/编辑器默认行为之前（尤其 Ctrl+F）
     window.addEventListener("keydown", onKeydown, true);
     for (const ev of MENU_EVENTS) {
       window.addEventListener(ev, onMenuEvent);
+    }
+    document.addEventListener("fullscreenchange", syncFullscreenState);
+    void syncFullscreenState();
+    if (tauri) {
+      void (async () => {
+        try {
+          const { getCurrentWindow } = await import("@tauri-apps/api/window");
+          unlistenFullscreen = await getCurrentWindow().onResized(() => {
+            void syncFullscreenState();
+          });
+        } catch {
+          /* ignore */
+        }
+      })();
     }
   });
 
@@ -572,6 +671,8 @@ export function useMenuBridge() {
     for (const ev of MENU_EVENTS) {
       window.removeEventListener(ev, onMenuEvent);
     }
+    document.removeEventListener("fullscreenchange", syncFullscreenState);
+    unlistenFullscreen?.();
     stopMenuCheckWatch?.();
     if (menuCheckTimer) clearTimeout(menuCheckTimer);
   });
