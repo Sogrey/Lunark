@@ -56,17 +56,22 @@
 ## M3 交付说明
 
 - **字数**：底栏 `StatusBar` — 词（CJK 按字 + 拉丁词）/ 字符 / 行；有选区时显示选中字符数。
-- **专注（F8）**：隐藏侧栏与 Tab 条，内容栏收窄居中；顶栏半透明；`Esc` 退出。
-- **打字机（F9）**：源码 CM6 `scrollMargins` + 滚光标至中部；混合模式对选区 `scrollTo` 居中。
-- **prefs**：`focusMode` / `typewriterMode` / `statusBarVisible` 持久化。
-- **菜单**：视图 → 专注 / 打字机 / 状态栏。
+- **沉浸模式族（正交可叠加）**：
+  - **全屏（F11）**：窗口全屏（Tauri `setFullscreen`；浏览器走 Fullscreen API）；不落盘。
+  - **专注（F8）**：隐藏侧栏与 Tab 条，内容栏收窄居中；`Esc` 退出。
+  - **打字机（F9）**：源码 CM6 `scrollMargins` + 滚光标至中部；混合模式对选区 `scrollTo` 居中。
+- **Esc 阶梯**：瞬时浮层（灯箱 / 命令面板 / 对话框 / 右键）→ 查找条 → Focus → 全屏。
+- **侧栏**：Focus 下再按侧栏快捷键会退出 Focus 并确保侧栏可见（避免「开了却看不见」）。
+- **prefs**：`focusMode` / `typewriterMode` / `statusBarVisible` 持久化；全屏仅会话态。
+- **菜单**：视图 → 专注 / 打字机 / 全屏 / 状态栏。
 
 ## 主题（M4）
 
 - 菜单 **主题**：Github / Newsprint / Night / Pixyll / Whitey；其下为已导入自定义主题。
 - **导入主题 CSS…** / **打开主题文件夹** / **移除当前自定义主题**。
 - 自定义文件存于应用配置目录 `themes/`；示例见仓库 `themes/examples/`。
-- 选择器：`[data-theme="custom"]`；可选头 `lunark-theme` / `lunark-dark`。
+- 选择器：`[data-theme="custom"]`；可选头 `lunark-theme` / `lunark-dark` / `lunark-features`。
+- 主题包约定：[themes/THEME_PACK.md](../themes/THEME_PACK.md)（预览能力声明 → `data-lunark-features`）。
 - `themeId`（含 `custom:<slug>`）写入 prefs；`data-theme-mode` 驱动 CM/Mermaid 明暗。
 
 ## Word / 图片导出

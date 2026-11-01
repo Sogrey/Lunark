@@ -1,7 +1,8 @@
 # Lunark MVP 路线图（方案 B）
 
 > 决策锁定：MVP = CodeMirror6 双栏 + markdown-it；**一体化 WYSIWYG 放二期。**  
-> 进度明细见 [PROGRESS.md](./PROGRESS.md)。四期范围见 [PHASE4.md](./PHASE4.md)。最近核对：**2026-10-17**。
+> 进度明细见 [PROGRESS.md](./PROGRESS.md)。四期范围见 [PHASE4.md](./PHASE4.md)。  
+> 四期后能力改进见 [IMPROVEMENTS.md](./IMPROVEMENTS.md)。最近核对：**2026-10-31**。
 
 ## 一期（MVP / P0）— **完成**
 
@@ -88,5 +89,6 @@ MVP 功能与打磨项已齐。
 1. **手测**四期全量 + [QA-SMOKE](./QA-SMOKE.md)（含启动尺寸、图床对话框、切 Tab）
 2. **持续**：推 `v*` 或手动跑 CI，用 Release 做多平台内测
 3. **按需**：反馈驱动的小修复 / 打磨
-4. **预留暂不排期**：移动端壳（跨平台）；Vim；签名 / 公证待正式对外再开
-5. 预留说明见 [PROGRESS.md](./PROGRESS.md)「预留 / 已知债」
+4. **改进计划**：按 [IMPROVEMENTS.md](./IMPROVEMENTS.md) 推进——P0–P2 与 P3（I15/I16/I18）已完成；I17 语种扩展开暂缓；**保持无中间工具栏**
+5. **预留暂不排期**：移动端壳（跨平台）；Vim；签名 / 公证待正式对外再开
+6. 预留说明见 [PROGRESS.md](./PROGRESS.md)「预留 / 已知债」

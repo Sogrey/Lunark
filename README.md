@@ -26,7 +26,7 @@
 | 启动窗口尺寸恢复（无小窗跳变） | ✅ |
 | 移动端壳 / Vim / 签名·公证 | ⏸ 预留 |
 
-详见 [PROGRESS](docs/PROGRESS.md) · [ROADMAP](docs/ROADMAP.md) · [PHASE2-WYSIWYG](docs/PHASE2-WYSIWYG.md) · [PHASE4](docs/PHASE4.md)
+详见 [PROGRESS](docs/PROGRESS.md) · [ROADMAP](docs/ROADMAP.md) · [PHASE2-WYSIWYG](docs/PHASE2-WYSIWYG.md) · [PHASE4](docs/PHASE4.md) · [IMPROVEMENTS](docs/IMPROVEMENTS.md)
 
 ### 建议下一步
 
@@ -62,8 +62,9 @@ pnpm tauri:build
 | 下一个 / 上一个标签 | `Ctrl+Tab` / `Ctrl+Shift+Tab` |
 | 混合 / 源码 / 双栏 | `Ctrl+/`（循环：混合 → 源码 → 双栏） |
 | 侧栏 | `Ctrl+\` |
-| 专注模式 | `F8`（`Esc` 退出） |
+| 专注模式 | `F8`（`Esc` 退出；可与全屏叠加） |
 | 打字机模式 | `F9` |
+| 全屏 | `F11`（`Esc`：先退专注再退全屏） |
 | 查找 | `Ctrl+F`（混合模式下会自动切到源码） |
 | 查找并替换 | `Ctrl+H` |
 | 工作区搜索 | `Ctrl+Shift+F` |
@@ -82,4 +83,4 @@ pnpm tauri:build
 
 ## 文档
 
-- [PROGRESS](docs/PROGRESS.md) · [ROADMAP](docs/ROADMAP.md) · [PRD](docs/PRD.md) · [PHASE2-WYSIWYG](docs/PHASE2-WYSIWYG.md) · [PHASE4](docs/PHASE4.md) · [QA-SMOKE](docs/QA-SMOKE.md)
+- [PROGRESS](docs/PROGRESS.md) · [ROADMAP](docs/ROADMAP.md) · [PRD](docs/PRD.md) · [PHASE2-WYSIWYG](docs/PHASE2-WYSIWYG.md) · [PHASE4](docs/PHASE4.md) · [IMPROVEMENTS](docs/IMPROVEMENTS.md) · [QA-SMOKE](docs/QA-SMOKE.md)
