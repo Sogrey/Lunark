@@ -31,6 +31,7 @@ export type MessageSchema = {
     find: string;
     replace: string;
     findWorkspace: string;
+    commandPalette: string;
     toggleMode: string;
     modeHybrid: string;
     modeSource: string;
@@ -38,8 +39,10 @@ export type MessageSchema = {
     sidebar: string;
     focusMode: string;
     typewriterMode: string;
+    fullscreen: string;
     statusBar: string;
     spellCheck: string;
+    codeLineNumbers: string;
     picgo: string;
     imageHosts: string;
     customTitlebar: string;
@@ -58,6 +61,7 @@ export type MessageSchema = {
     themeRemove: string;
     about: string;
     shortcuts: string;
+    syntaxHelp: string;
     langZhCN: string;
     langZhTW: string;
     langEn: string;
@@ -87,6 +91,7 @@ export type MessageSchema = {
     tipWorkspaceSearch: string;
     tipFocus: string;
     tipTypewriter: string;
+    tipFullscreen: string;
     tipSave: string;
     tipRotateToggleMode: string;
     scanning: string;
@@ -97,9 +102,20 @@ export type MessageSchema = {
     backlinksNeedFile: string;
     backlinksEmpty: string;
   };
+  cmd: {
+    title: string;
+    placeholder: string;
+    empty: string;
+    hint: string;
+    catFormat: string;
+    catInsert: string;
+    catView: string;
+    catNav: string;
+  };
   help: {
     aboutTitle: string;
     shortcutsTitle: string;
+    syntaxTitle: string;
     close: string;
     ok: string;
     copy: string;
@@ -107,6 +123,26 @@ export type MessageSchema = {
     keys: string;
     action: string;
     tip: string;
+    dialectBadge: string;
+    syntaxIntro: string;
+    sxContainers: string;
+    sxContainersNote: string;
+    sxImageSize: string;
+    sxImageSizeNote: string;
+    sxHighlightLines: string;
+    sxHighlightLinesNote: string;
+    sxKatex: string;
+    sxMermaid: string;
+    sxAlign: string;
+    sxAlignNote: string;
+    sxAnchor: string;
+    sxAnchorNote: string;
+    sxWiki: string;
+    sxWikiNote: string;
+    sxEmoji: string;
+    sxEmojiNote: string;
+    sxGfm: string;
+    sxGfmNote: string;
     aboutBody: string;
     depsTitle: string;
     depName: string;
@@ -125,9 +161,11 @@ export type MessageSchema = {
     scFind: string;
     scReplace: string;
     scFindWorkspace: string;
+    scCommandPalette: string;
     scHelp: string;
     scFocus: string;
     scTypewriter: string;
+    scFullscreen: string;
     scEsc: string;
   };
   /** 编辑器 UI（查找 / 右键 / 表格 / Crepe / 侧栏等） */
@@ -141,6 +179,7 @@ export type MessageSchema = {
     closeOtherTabs: string;
     closeAllTabs: string;
     previewEmpty: string;
+    imageLightbox: string;
     noMdInFolder: string;
     outlineEmpty: string;
     outlineLine: string;
@@ -189,9 +228,21 @@ export type MessageSchema = {
     headingLevel: string;
     image: string;
     footnote: string;
+    containerGroup: string;
+    alignGroup: string;
+    emoji: string;
+    containerTip: string;
+    containerInfo: string;
+    containerWarning: string;
+    containerDanger: string;
+    containerDetails: string;
+    containerBody: string;
     hr: string;
     table: string;
     codeBlock: string;
+    /** 将选中行写入围栏 `{1,3-5}` */
+    highlightSelectedLines: string;
+    clearLineHighlight: string;
     mathBlock: string;
     toc: string;
     yamlFm: string;
@@ -213,6 +264,7 @@ export type MessageSchema = {
     deleteRow: string;
     deleteCol: string;
     copyTable: string;
+    copyCode: string;
     formatTable: string;
     deleteTable: string;
     aiAssist: string;
@@ -285,6 +337,7 @@ export type MessageSchema = {
     mailOpenFail: string;
     linkParseFail: string;
     cannotOpen: string;
+    copyFail: string;
     exportUnsavedWarn: string;
     exportUnsavedConfirm: string;
     exportUnsavedConfirmBrowser: string;
@@ -328,6 +381,7 @@ export type MessageSchema = {
     discardConfirm: string;
     needTauri: string;
     needTauriImage: string;
+    dialogInsertImage: string;
     dialogOpenMd: string;
     dialogSaveMd: string;
     dialogExportHtml: string;

@@ -38,11 +38,17 @@ export const useEditorStore = defineStore("editor", () => {
   const splitRatio = ref(0.5);
   const cmView = shallowRef<EditorView | null>(null);
   const previewEl = shallowRef<HTMLElement | null>(null);
+  /** 预览滚动对应的大纲当前节（标题 id）；无预览时为 null */
+  const activeHeadingId = ref<string | null>(null);
   const scrollSyncEnabled = ref(true);
   const focusMode = ref(false);
   const typewriterMode = ref(false);
+  /** 窗口全屏（会话态，不落盘；与 Focus / 打字机正交） */
+  const windowFullscreen = ref(false);
   const statusBarVisible = ref(true);
   const spellCheckEnabled = ref(false);
+  /** 预览代码块行号（默认关） */
+  const codeLineNumbers = ref(false);
   const picgoEnabled = ref(false);
   const picgoEndpoint = ref(DEFAULT_PICGO_ENDPOINT);
   const imageHosts = ref<ImageHostProfile[]>(createDefaultImageHosts());
@@ -123,6 +129,11 @@ export const useEditorStore = defineStore("editor", () => {
 
   function setPreviewEl(el: HTMLElement | null) {
     previewEl.value = el;
+    if (!el) activeHeadingId.value = null;
+  }
+
+  function setActiveHeadingId(id: string | null) {
+    activeHeadingId.value = id;
   }
 
   function setScrollSyncEnabled(enabled: boolean) {
@@ -149,6 +160,10 @@ export const useEditorStore = defineStore("editor", () => {
     typewriterMode.value = !typewriterMode.value;
   }
 
+  function setWindowFullscreenState(enabled: boolean) {
+    windowFullscreen.value = enabled;
+  }
+
   function setStatusBarVisible(visible: boolean) {
     statusBarVisible.value = visible;
   }
@@ -163,6 +178,14 @@ export const useEditorStore = defineStore("editor", () => {
 
   function toggleSpellCheck() {
     spellCheckEnabled.value = !spellCheckEnabled.value;
+  }
+
+  function setCodeLineNumbers(enabled: boolean) {
+    codeLineNumbers.value = enabled;
+  }
+
+  function toggleCodeLineNumbers() {
+    codeLineNumbers.value = !codeLineNumbers.value;
   }
 
   function syncEndpointFromActiveHost() {
@@ -314,6 +337,7 @@ export const useEditorStore = defineStore("editor", () => {
 
   /** 跳转到源码行（1-based）并滚动预览标题 */
   function jumpToHeading(line: number, headingId: string) {
+    activeHeadingId.value = headingId;
     jumpToLine(line);
 
     void (async () => {
@@ -343,11 +367,14 @@ export const useEditorStore = defineStore("editor", () => {
     splitRatio,
     cmView,
     previewEl,
+    activeHeadingId,
     scrollSyncEnabled,
     focusMode,
     typewriterMode,
+    windowFullscreen,
     statusBarVisible,
     spellCheckEnabled,
+    codeLineNumbers,
     picgoEnabled,
     picgoEndpoint,
     imageHosts,
@@ -370,16 +397,20 @@ export const useEditorStore = defineStore("editor", () => {
     openDocument,
     setCmView,
     setPreviewEl,
+    setActiveHeadingId,
     setScrollSyncEnabled,
     toggleScrollSync,
     setFocusMode,
     toggleFocusMode,
     setTypewriterMode,
     toggleTypewriterMode,
+    setWindowFullscreenState,
     setStatusBarVisible,
     toggleStatusBar,
     setSpellCheckEnabled,
     toggleSpellCheck,
+    setCodeLineNumbers,
+    toggleCodeLineNumbers,
     setPicgoEnabled,
     togglePicgo,
     setPicgoEndpoint,

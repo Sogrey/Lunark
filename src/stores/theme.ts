@@ -19,6 +19,10 @@ import {
   readCustomThemeCss,
   removeCustomTheme,
 } from "@/lib/theme/customCss";
+import {
+  applyThemeFeaturesToDom,
+  type ThemeFeature,
+} from "@/lib/theme/features";
 import { clearMermaidCache } from "@/lib/markdown/mermaid";
 
 export const useThemeStore = defineStore("theme", () => {
@@ -29,6 +33,9 @@ export const useThemeStore = defineStore("theme", () => {
     themeMeta(themeId.value, customThemes.value),
   );
   const isDark = computed(() => meta.value.dark);
+  const activeFeatures = computed<ThemeFeature[]>(
+    () => meta.value.features ?? [],
+  );
   const mermaidMode = computed<"dark" | "light">(() =>
     isDark.value ? "dark" : "light",
   );
@@ -41,13 +48,15 @@ export const useThemeStore = defineStore("theme", () => {
 
   async function applyActiveTheme() {
     const id = themeId.value;
-    const dark = themeMeta(id, customThemes.value).dark;
-    applyThemeToDom(id, dark);
+    const current = themeMeta(id, customThemes.value);
+    applyThemeToDom(id, current.dark);
+    applyThemeFeaturesToDom(current.features ?? []);
 
     if (isCustomThemeId(id)) {
       const entry = customThemes.value.find((t) => t.id === id);
       if (!entry) {
         injectCustomCss(null);
+        applyThemeFeaturesToDom([]);
         themeId.value = DEFAULT_THEME_ID;
         applyThemeToDom(DEFAULT_THEME_ID, true);
         return;
@@ -58,6 +67,7 @@ export const useThemeStore = defineStore("theme", () => {
       } catch (e) {
         console.warn("[lunark] load custom theme failed", e);
         injectCustomCss(null);
+        applyThemeFeaturesToDom([]);
         themeId.value = DEFAULT_THEME_ID;
         applyThemeToDom(DEFAULT_THEME_ID, true);
       }
@@ -118,6 +128,7 @@ export const useThemeStore = defineStore("theme", () => {
     customThemes,
     meta,
     isDark,
+    activeFeatures,
     mermaidMode,
     themes,
     isCustomActive,
