@@ -29,8 +29,10 @@ export const SHORTCUT_ROWS: ShortcutRow[] = [
   { keys: "Ctrl+F", actionKey: "help.scFind", where: "both" },
   { keys: "Ctrl+H", actionKey: "help.scReplace", where: "both" },
   { keys: "Ctrl+Shift+F", actionKey: "help.scFindWorkspace", where: "both" },
+  { keys: "Ctrl+Shift+P", actionKey: "help.scCommandPalette", where: "both" },
   { keys: "F1", actionKey: "help.scHelp", where: "both" },
   { keys: "F8", actionKey: "help.scFocus", where: "both" },
   { keys: "F9", actionKey: "help.scTypewriter", where: "both" },
+  { keys: "F11", actionKey: "help.scFullscreen", where: "both" },
   { keys: "Esc", actionKey: "help.scEsc", where: "both" },
 ];

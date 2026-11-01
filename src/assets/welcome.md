@@ -31,6 +31,10 @@ phase: MVP
 
 也可手写：`![说明](./assets/demo.png)`
 
+## 扩展语法
+
+菜单 **帮助 → 扩展语法…** 可查看 tip 容器、图片尺寸、行高亮、Wiki 链等示例（标「方言」为可选扩展）。仓库文档：`docs/SYNTAX.md`。
+
 ## GFM 示例
 
 - **粗体** *斜体* ~~删除线~~
@@ -41,12 +45,13 @@ phase: MVP
 
 ### 代码（Shiki）
 
-```ts
+```ts{1,3}
 const greeting = "hello from Lunark";
+const unused = 0;
 console.log(greeting);
 ```
 
-行内代码：`const x = 1`
+行内代码：`const x = 1` · 围栏 `{1,3}` 可高亮指定行。
 
 ### 公式（KaTeX）
 
@@ -69,13 +74,19 @@ flowchart LR
   B --> F[Shiki]
 ```
 
+### 提示容器（方言）
+
+::: tip 小提示
+可用右键「插入」快速写入 tip / warning / details。
+:::
+
 ### 表格
 
 | 阶段 | 形态 | 状态 |
 |---|---|---|
 | MVP | 双栏预览 | 扩展渲染已接 |
-| 二期 | WYSIWYG | 未开始 |
+| 二期 | 混合编辑 | 已落地 |
 
 脚注示例[^1]。
 
-[^1]: 二期见 `docs/PHASE2-WYSIWYG.md`。
+[^1]: 更多见应用内「帮助 → 扩展语法…」。
