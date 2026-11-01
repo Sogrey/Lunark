@@ -1,4 +1,4 @@
-import { createHighlighter, type Highlighter } from "shiki";
+import { createHighlighter, type Highlighter, type ShikiTransformer } from "shiki";
 
 /** 首屏只预加载常用语言，其余按需 loadLanguage */
 const BOOT_LANGS = [
@@ -17,6 +17,13 @@ const THEME_DARK = "one-dark-pro";
 const THEME_LIGHT = "github-light";
 
 export type ShikiThemeMode = "dark" | "light";
+
+export interface HighlightOptions {
+  /** 预览显示行号（prefs，默认关） */
+  lineNumbers?: boolean;
+  /** 1-based 高亮行 */
+  highlightLines?: readonly number[];
+}
 
 let highlighterPromise: Promise<Highlighter> | null = null;
 
@@ -51,14 +58,37 @@ function themeName(mode: ShikiThemeMode): string {
   return mode === "light" ? THEME_LIGHT : THEME_DARK;
 }
 
+function buildTransformers(options: HighlightOptions): ShikiTransformer[] {
+  const highlight = new Set(options.highlightLines ?? []);
+  const lineNumbers = options.lineNumbers === true;
+  if (!lineNumbers && highlight.size === 0) return [];
+
+  return [
+    {
+      name: "lunark-lines",
+      pre(node) {
+        if (lineNumbers) this.addClassToHast(node, "has-line-numbers");
+        if (highlight.size > 0) this.addClassToHast(node, "has-line-highlights");
+      },
+      line(node, line) {
+        node.properties = node.properties ?? {};
+        node.properties["data-line"] = String(line);
+        if (highlight.has(line)) this.addClassToHast(node, "highlighted");
+      },
+    },
+  ];
+}
+
 export async function highlightCode(
   code: string,
   lang: string,
   mode: ShikiThemeMode = "dark",
+  options: HighlightOptions = {},
 ): Promise<string> {
   const highlighter = await getHighlighter();
   const normalized = normalizeLang(lang || "text");
   const theme = themeName(mode);
+  const transformers = buildTransformers(options);
 
   let useLang = "text";
   const loaded = highlighter.getLoadedLanguages();
@@ -77,11 +107,13 @@ export async function highlightCode(
     return highlighter.codeToHtml(code, {
       lang: useLang,
       theme,
+      transformers,
     });
   } catch {
     return highlighter.codeToHtml(code, {
       lang: "text",
       theme,
+      transformers,
     });
   }
 }

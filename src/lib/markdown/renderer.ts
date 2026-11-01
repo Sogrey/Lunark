@@ -1,11 +1,22 @@
 import MarkdownIt from "markdown-it";
+import markdownItAttrs from "markdown-it-attrs";
 import markdownItFootnote from "markdown-it-footnote";
 import markdownItTaskLists from "markdown-it-task-lists";
-import { katex } from "@mdit/plugin-katex";
-import DOMPurify from "dompurify";
 import { enhanceFencedBlocks } from "@/lib/markdown/enhance";
+import { useMarkdownContainers } from "@/lib/markdown/containers";
+import { parseFenceInfo } from "@/lib/markdown/fenceInfo";
+import {
+  expandImageSizeSyntax,
+  sanitizeSizeValue,
+} from "@/lib/markdown/imageSize";
+import {
+  ensureKatexPlugin,
+  sourceLikelyHasMath,
+} from "@/lib/markdown/katexLazy";
 import { normalizeImageDestinations } from "@/lib/markdown/normalizeImages";
 import { applyPreviewThemeClasses } from "@/lib/markdown/previewThemeClasses";
+import { sanitizePreviewHtml } from "@/lib/markdown/sanitize";
+import { stripHeadingAnchorMarkers } from "@/lib/markdown/toc";
 import { expandWikiLinksForPreview } from "@/lib/markdown/wikiLinks";
 
 const md = new MarkdownIt({
@@ -17,11 +28,55 @@ const md = new MarkdownIt({
   .enable("strikethrough")
   .use(markdownItFootnote)
   .use(markdownItTaskLists, { enabled: false, label: true })
-  .use(katex, {
-    // 允许 $...$ / $$...$$
-    delimiters: "dollars",
-    throwOnError: false,
+  // KaTeX 首次遇公式再 .use（见 ensureKatexPlugin）
+  .use(markdownItAttrs, {
+    allowedAttributes: ["width", "height", "class"],
   });
+
+useMarkdownContainers(md);
+
+/** 尺寸属性消毒，避免 attrs 注入异常值 */
+const defaultImage = md.renderer.rules.image;
+if (defaultImage) {
+  md.renderer.rules.image = (tokens, idx, options, env, self) => {
+    const token = tokens[idx]!;
+    if (token.attrs) {
+      const next: [string, string][] = [];
+      for (const [k, v] of token.attrs) {
+        const val = String(v);
+        if (k === "width" || k === "height") {
+          const safe = sanitizeSizeValue(val);
+          if (safe) next.push([k, safe]);
+          continue;
+        }
+        if (k === "class" || k === "src" || k === "alt" || k === "title") {
+          next.push([k, val]);
+        }
+      }
+      token.attrs = next;
+    }
+    return defaultImage(tokens, idx, options, env, self);
+  };
+}
+
+/** 保留 `{1,3-5}` 到 data-line-highlight，语言类名保持干净 */
+const defaultFence = md.renderer.rules.fence;
+if (defaultFence) {
+  md.renderer.rules.fence = (tokens, idx, options, env, self) => {
+    const token = tokens[idx]!;
+    const rawInfo = token.info ?? "";
+    const { lang, highlightLines } = parseFenceInfo(rawInfo);
+    const saved = token.info;
+    token.info = lang;
+    let html = defaultFence(tokens, idx, options, env, self);
+    token.info = saved;
+    if (highlightLines.length > 0) {
+      const attr = ` data-line-highlight="${highlightLines.join(",")}"`;
+      html = html.replace(/<code\b/, `<code${attr}`);
+    }
+    return html;
+  };
+}
 
 const FRONT_MATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
 
@@ -39,69 +94,25 @@ function splitFrontMatter(source: string): {
   return { matter: match[1], body: source.slice(match[0].length) };
 }
 
-function sanitizeHtml(html: string): string {
-  return DOMPurify.sanitize(html, {
-    USE_PROFILES: { html: true, svg: true, svgFilters: true },
-    ADD_TAGS: [
-      "foreignObject",
-      "annotation",
-      "semantics",
-      "math",
-      "mrow",
-      "mi",
-      "mo",
-      "mn",
-      "ms",
-      "mtext",
-    ],
-    ADD_ATTR: [
-      "style",
-      "class",
-      "id",
-      "viewBox",
-      "xmlns",
-      "fill",
-      "stroke",
-      "stroke-width",
-      "d",
-      "cx",
-      "cy",
-      "r",
-      "x",
-      "y",
-      "width",
-      "height",
-      "transform",
-      "marker-end",
-      "marker-start",
-      "points",
-      "x1",
-      "x2",
-      "y1",
-      "y2",
-      "text-anchor",
-      "dominant-baseline",
-      "aria-hidden",
-      "role",
-      "focusable",
-      "tabindex",
-    ],
-  });
-}
-
 export async function renderMarkdown(source: string): Promise<RenderResult> {
   const { matter, body } = splitFrontMatter(source);
   const withWiki = expandWikiLinksForPreview(body);
-  const normalized = normalizeImageDestinations(withWiki);
-  const bodyHtml = md.render(normalized);
+  const withSizes = expandImageSizeSyntax(withWiki);
+  const normalized = normalizeImageDestinations(withSizes);
+  // 剥 `{#id}` 标记；大纲 id 仍由 extractToc（含自定义锚点）+ applyTocIdsToHtml
+  const forRender = stripHeadingAnchorMarkers(normalized);
+  if (sourceLikelyHasMath(forRender)) {
+    await ensureKatexPlugin(md);
+  }
+  const bodyHtml = md.render(forRender);
   // 先消毒普通 HTML，再注入 Mermaid/Shiki，避免 SVG foreignObject 内文字被剥掉
-  const safe = sanitizeHtml(bodyHtml);
+  const safe = sanitizePreviewHtml(bodyHtml);
   const enhanced = await enhanceFencedBlocks(safe);
   const withHooks = applyPreviewThemeClasses(enhanced);
 
   let html = withHooks;
   if (matter?.trim()) {
-    const fm = sanitizeHtml(matter.trim());
+    const fm = sanitizePreviewHtml(matter.trim());
     html = `<pre class="front-matter md-meta">${fm}</pre>${withHooks}`;
   }
 

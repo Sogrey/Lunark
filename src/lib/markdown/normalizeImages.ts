@@ -4,11 +4,19 @@
  */
 export function normalizeImageDestinations(source: string): string {
   return source.replace(
-    /!\[([^\]]*)\]\((<)?([^>\n)]+)(>)?\)/g,
-    (_m, alt: string, _open: string | undefined, url: string) => {
+    /!\[([^\]]*)\]\((<)?([^>\n)]+)(>)?\)(\{[^}]*\})?/g,
+    (
+      _m,
+      alt: string,
+      _open: string | undefined,
+      url: string,
+      _close: string | undefined,
+      attrs: string | undefined,
+    ) => {
+      const suffix = attrs ?? "";
       const trimmed = url.trim();
       if (/^(?:https?:|data:|blob:|asset:)/i.test(trimmed)) {
-        return `![${alt}](${trimmed})`;
+        return `![${alt}](${trimmed})${suffix}`;
       }
 
       let decoded = trimmed;
@@ -30,7 +38,7 @@ export function normalizeImageDestinations(source: string): string {
         })
         .join("/");
 
-      return `![${alt}](${encoded})`;
+      return `![${alt}](${encoded})${suffix}`;
     },
   );
 }

@@ -1,13 +1,25 @@
-import mermaid from "mermaid";
+/**
+ * Mermaid 按需加载：首次 render 再动态 import，避免打进首屏主包。
+ */
 import { t } from "@/lib/i18n";
 
 export type MermaidThemeMode = "dark" | "light";
 
+type MermaidApi = typeof import("mermaid").default;
+
+let mermaidPromise: Promise<MermaidApi> | null = null;
 let activeMode: MermaidThemeMode | null = null;
 const svgCache = new Map<string, string>();
 let renderSeq = 0;
 
-function ensureInit(mode: MermaidThemeMode) {
+function loadMermaid(): Promise<MermaidApi> {
+  if (!mermaidPromise) {
+    mermaidPromise = import("mermaid").then((m) => m.default);
+  }
+  return mermaidPromise;
+}
+
+function ensureInit(mermaid: MermaidApi, mode: MermaidThemeMode) {
   if (activeMode === mode) return;
   activeMode = mode;
   svgCache.clear();
@@ -100,7 +112,8 @@ export function renderMermaidSvg(
     const again = svgCache.get(cacheKey);
     if (again) return again;
 
-    ensureInit(mode);
+    const mermaid = await loadMermaid();
+    ensureInit(mermaid, mode);
     const id = `lunark-mermaid-${++renderSeq}`;
     try {
       const { svg } = await mermaid.render(id, code);
