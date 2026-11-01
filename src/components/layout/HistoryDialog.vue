@@ -136,7 +136,7 @@ onUnmounted(() => {
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="mask" @click.self="close">
+    <div v-if="open" class="mask" data-lunark-dialog @click.self="close">
       <div class="dialog" role="dialog" :aria-label="title">
         <header class="head">
           <h2>{{ title }}</h2>

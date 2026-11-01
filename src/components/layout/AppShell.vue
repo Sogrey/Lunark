@@ -10,6 +10,7 @@ import TableToolbar from "@/components/editor/TableToolbar.vue";
 import HelpDialog from "@/components/layout/HelpDialog.vue";
 import HistoryDialog from "@/components/layout/HistoryDialog.vue";
 import ImageHostDialog from "@/components/layout/ImageHostDialog.vue";
+import CommandPalette from "@/components/layout/CommandPalette.vue";
 import TitleBar from "@/components/layout/TitleBar.vue";
 import { useEditorStore } from "@/stores/editor";
 import { useWorkspaceStore } from "@/stores/workspace";
@@ -39,6 +40,7 @@ const showTitlebar = computed(
 const shellClass = computed(() => ({
   "focus-mode": editor.focusMode,
   "typewriter-mode": editor.typewriterMode,
+  "window-fullscreen": editor.windowFullscreen,
   "has-titlebar": showTitlebar.value,
 }));
 
@@ -97,6 +99,7 @@ onBeforeUnmount(() => {
     <HelpDialog />
     <HistoryDialog />
     <ImageHostDialog />
+    <CommandPalette />
   </div>
 </template>
 

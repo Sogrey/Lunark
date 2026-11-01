@@ -1,24 +1,43 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { isTauri } from "@tauri-apps/api/core";
 import { ElMessage } from "element-plus";
 import { getFormatBridge } from "@/lib/editor/formatBridge";
+import {
+  containerSnippet,
+  type ContainerKind,
+} from "@/lib/markdown/containers";
+import { EMOJI_CATALOG } from "@/lib/editor/emojiCatalog";
 import { runEditorAiAction } from "@/lib/ai/runAiAction";
 import type { AiAction } from "@/lib/ai/ollama";
 
-type Submenu = "copyAs" | "paragraph" | "insert" | "ai" | null;
+type Submenu = "copyAs" | "paragraph" | "insert" | "ai" | "codeHl" | null;
+type Nested = "containers" | "align" | "emoji" | null;
 
 const { t } = useI18n();
 const open = ref(false);
 const x = ref(0);
 const y = ref(0);
 const submenu = ref<Submenu>(null);
+const nested = ref<Nested>(null);
 const subX = ref(0);
 const subY = ref(0);
+const nestX = ref(0);
+const nestY = ref(0);
+const subPanelRef = ref<HTMLElement | null>(null);
+const nestPanelRef = ref<HTMLElement | null>(null);
 
 const hasSelection = ref(false);
+/** 光标在可高亮代码块内时显示「代码块」子菜单 */
+const codeHlCtx = ref<{
+  canSet: boolean;
+  canClear: boolean;
+  selectedLines: number[];
+} | null>(null);
+/** 飞出菜单关闭延迟，避免二三级之间空隙误关 */
+let flyoutCloseTimer: ReturnType<typeof setTimeout> | null = null;
 
 const menuStyle = computed(() => ({
   left: `${x.value}px`,
@@ -30,19 +49,33 @@ const subStyle = computed(() => ({
   top: `${subY.value}px`,
 }));
 
+const nestStyle = computed(() => ({
+  left: `${nestX.value}px`,
+  top: `${nestY.value}px`,
+}));
+
 function bridge() {
   return getFormatBridge();
 }
 
+function cancelFlyoutClose() {
+  if (flyoutCloseTimer) {
+    clearTimeout(flyoutCloseTimer);
+    flyoutCloseTimer = null;
+  }
+}
+
 function close() {
+  cancelFlyoutClose();
   open.value = false;
   submenu.value = null;
+  nested.value = null;
 }
 
 function placeMenu(clientX: number, clientY: number) {
   const pad = 8;
   const mw = 260;
-  const mh = 320;
+  const mh = 420;
   x.value = Math.min(clientX, window.innerWidth - mw - pad);
   y.value = Math.min(clientY, window.innerHeight - mh - pad);
   x.value = Math.max(pad, x.value);
@@ -73,8 +106,18 @@ function onContextMenu(e: MouseEvent) {
   e.preventDefault();
   e.stopPropagation();
   hasSelection.value = !!bridge()?.getSelectedText();
+  const hl = bridge()?.inspectCodeBlockHighlight() ?? null;
+  codeHlCtx.value =
+    hl?.highlightable
+      ? {
+          canSet: hl.selectedLines.length > 0,
+          canClear: hl.highlightLines.length > 0,
+          selectedLines: hl.selectedLines,
+        }
+      : null;
   placeMenu(e.clientX, e.clientY);
   submenu.value = null;
+  nested.value = null;
   open.value = true;
 }
 
@@ -207,10 +250,12 @@ function heading(level: 0 | 1 | 2 | 3 | 4 | 5 | 6) {
 }
 
 function insertImage() {
-  bridge()?.runBlockAction("image");
+  void import("@/lib/editor/pickInsertImages").then((m) =>
+    m.pickAndInsertImages(),
+  );
 }
 function insertFootnote() {
-  bridge()?.insertSnippet(`[^1]\n\n[^1]: ${t("editor.footnoteBody")}`);
+  void import("@/lib/editor/insertFootnote").then((m) => m.insertFootnote());
 }
 function insertHr() {
   bridge()?.runBlockAction("hr");
@@ -221,6 +266,14 @@ function insertTable() {
 function insertCode() {
   bridge()?.runBlockAction("codeBlock");
 }
+function highlightSelectedCodeLines() {
+  const lines = codeHlCtx.value?.selectedLines;
+  if (!lines?.length) return;
+  bridge()?.applyCodeBlockHighlight(lines);
+}
+function clearCodeLineHighlight() {
+  bridge()?.applyCodeBlockHighlight(null);
+}
 function insertMath() {
   bridge()?.runBlockAction("math");
 }
@@ -230,19 +283,139 @@ function insertToc() {
 function insertYaml() {
   bridge()?.insertSnippet("---\ntitle: \n---\n");
 }
+function insertContainer(kind: ContainerKind) {
+  bridge()?.insertSnippet(containerSnippet(kind));
+}
+function insertEmoji(char: string) {
+  bridge()?.insertSnippet(char);
+}
 function insertPara(where: "above" | "below") {
   bridge()?.insertSnippet(where === "above" ? "\n" : "\n\n");
 }
 
+/**
+ * 贴齐锚点展开；水平优先贴右且保持与锚点重叠，避免空隙误关。
+ * 垂直按预估高度夹进视口；渲染后再用真实高度二次校正。
+ */
+function placeFlyout(
+  rect: DOMRect,
+  width: number,
+  estHeight: number,
+  overlap = 2,
+): { left: number; top: number } {
+  const pad = 8;
+  const maxH = Math.max(80, window.innerHeight - pad * 2);
+  const h = Math.min(estHeight, maxH);
+  const rightPos = rect.right - overlap;
+  const leftPos = rect.left - width + overlap;
+  const fitsRight = rightPos + width <= window.innerWidth - pad;
+  const fitsLeft = leftPos >= pad;
+
+  let left: number;
+  if (fitsRight) left = rightPos;
+  else if (fitsLeft) left = leftPos;
+  else left = Math.max(pad, window.innerWidth - width - pad);
+
+  let top = Math.min(rect.top, window.innerHeight - h - pad);
+  top = Math.max(pad, top);
+  return { left, top };
+}
+
+/** 按面板真实尺寸把飞出层夹回可视区域 */
+function reclampPanel(
+  el: HTMLElement | null,
+  setLeft: (n: number) => void,
+  setTop: (n: number) => void,
+) {
+  if (!el) return;
+  const pad = 8;
+  const r = el.getBoundingClientRect();
+  let left = r.left;
+  let top = r.top;
+  if (r.bottom > window.innerHeight - pad) {
+    top = Math.max(pad, window.innerHeight - r.height - pad);
+  }
+  if (r.top < pad) top = pad;
+  if (r.right > window.innerWidth - pad) {
+    left = Math.max(pad, window.innerWidth - r.width - pad);
+  }
+  if (r.left < pad) left = pad;
+  if (left !== r.left) setLeft(left);
+  if (top !== r.top) setTop(top);
+}
+
 function openSub(kind: Submenu, ev: MouseEvent) {
+  cancelFlyoutClose();
   submenu.value = kind;
+  nested.value = null;
   const el = ev.currentTarget as HTMLElement;
   const rect = el.getBoundingClientRect();
-  const sw = 220;
-  let left = rect.right + 4;
-  if (left + sw > window.innerWidth - 8) left = rect.left - sw - 4;
-  subX.value = Math.max(8, left);
-  subY.value = Math.max(8, Math.min(rect.top, window.innerHeight - 280));
+  // insert 项多，预估偏小会先画出再被裁；用偏大值 + 实测校正
+  const est =
+    kind === "insert"
+      ? 520
+      : kind === "paragraph"
+        ? 320
+        : kind === "ai"
+          ? 200
+          : kind === "codeHl"
+            ? 120
+            : 140;
+  const pos = placeFlyout(rect, 220, est, 4);
+  subX.value = pos.left;
+  subY.value = pos.top;
+  void nextTick(() => {
+    reclampPanel(subPanelRef.value, (n) => (subX.value = n), (n) => (subY.value = n));
+  });
+}
+
+function openNested(kind: Nested, ev: MouseEvent) {
+  cancelFlyoutClose();
+  nested.value = kind;
+  const row = ev.currentTarget as HTMLElement;
+  const panel = row.closest(".ctx-sub") as HTMLElement | null;
+  const rowRect = row.getBoundingClientRect();
+  const panelRect = panel?.getBoundingClientRect() ?? rowRect;
+  // 水平贴二级面板边，垂直对齐当前行；多重叠几像素当「桥」
+  const anchor = new DOMRect(
+    panelRect.left,
+    rowRect.top,
+    panelRect.width,
+    rowRect.height,
+  );
+  const est =
+    kind === "emoji" ? 320 : kind === "containers" ? 240 : 160;
+  const width = kind === "emoji" ? 292 : 168;
+  const pos = placeFlyout(anchor, width, est, kind === "emoji" ? 14 : 10);
+  nestX.value = pos.left;
+  nestY.value = pos.top;
+  void nextTick(() => {
+    reclampPanel(nestPanelRef.value, (n) => (nestX.value = n), (n) => (nestY.value = n));
+  });
+}
+
+function onFlyoutEnter() {
+  cancelFlyoutClose();
+}
+
+/** 移入同级/下级菜单时不关；离开后延迟关闭，方便穿过空隙 */
+const FLYOUT_CLOSE_MS = 500;
+
+function onFlyoutLeave(e: MouseEvent) {
+  const to = e.relatedTarget as HTMLElement | null;
+  if (
+    to?.closest(".ctx-menu") ||
+    to?.closest(".ctx-sub") ||
+    to?.closest(".ctx-nest")
+  ) {
+    return;
+  }
+  cancelFlyoutClose();
+  flyoutCloseTimer = setTimeout(() => {
+    flyoutCloseTimer = null;
+    submenu.value = null;
+    nested.value = null;
+  }, FLYOUT_CLOSE_MS);
 }
 
 function onKey(e: KeyboardEvent) {
@@ -255,7 +428,13 @@ function onKey(e: KeyboardEvent) {
 function onPointerDown(e: MouseEvent) {
   if (!open.value) return;
   const el = e.target as HTMLElement | null;
-  if (el?.closest(".ctx-menu") || el?.closest(".ctx-sub")) return;
+  if (
+    el?.closest(".ctx-menu") ||
+    el?.closest(".ctx-sub") ||
+    el?.closest(".ctx-nest")
+  ) {
+    return;
+  }
   close();
 }
 
@@ -267,6 +446,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  cancelFlyoutClose();
   window.removeEventListener("contextmenu", onContextMenu, true);
   window.removeEventListener("keydown", onKey);
   window.removeEventListener("mousedown", onPointerDown, true);
@@ -387,6 +567,18 @@ onUnmounted(() => {
       <div class="divider" />
 
       <button
+        v-if="codeHlCtx"
+        type="button"
+        class="row has-sub"
+        role="menuitem"
+        @mouseenter="openSub('codeHl', $event)"
+        @click="openSub('codeHl', $event)"
+      >
+        {{ t("editor.codeBlock") }}
+        <span class="arrow">›</span>
+      </button>
+
+      <button
         type="button"
         class="row has-sub"
         role="menuitem"
@@ -420,10 +612,12 @@ onUnmounted(() => {
 
     <div
       v-if="open && submenu === 'copyAs'"
+      ref="subPanelRef"
       class="ctx-sub"
       :style="subStyle"
       role="menu"
-      @mouseleave="submenu = null"
+      @mouseenter="onFlyoutEnter"
+      @mouseleave="onFlyoutLeave"
     >
       <button type="button" class="row" @click="run(() => void copyAsMarkdown())">
         <span>{{ t("editor.copyAsMarkdown") }}</span>
@@ -437,10 +631,12 @@ onUnmounted(() => {
 
     <div
       v-if="open && submenu === 'paragraph'"
+      ref="subPanelRef"
       class="ctx-sub"
       :style="subStyle"
       role="menu"
-      @mouseleave="submenu = null"
+      @mouseenter="onFlyoutEnter"
+      @mouseleave="onFlyoutLeave"
     >
       <button
         v-for="lv in [1, 2, 3, 4, 5, 6] as const"
@@ -461,55 +657,272 @@ onUnmounted(() => {
 
     <div
       v-if="open && submenu === 'insert'"
+      ref="subPanelRef"
       class="ctx-sub"
       :style="subStyle"
       role="menu"
-      @mouseleave="submenu = null"
+      @mouseenter="onFlyoutEnter"
+      @mouseleave="onFlyoutLeave"
     >
-      <button type="button" class="row" @click="run(insertImage)">
+      <button
+        type="button"
+        class="row"
+        @mouseenter="nested = null"
+        @click="run(insertImage)"
+      >
         <span>{{ t("editor.image") }}</span>
         <kbd>Ctrl+Shift+I</kbd>
       </button>
       <div class="divider" />
-      <button type="button" class="row" @click="run(insertFootnote)">
+      <button
+        type="button"
+        class="row"
+        @mouseenter="nested = null"
+        @click="run(insertFootnote)"
+      >
         {{ t("editor.footnote") }}
       </button>
-      <button type="button" class="row" @click="run(insertHr)">
+      <div class="divider" />
+      <button
+        type="button"
+        class="row has-sub"
+        role="menuitem"
+        @mouseenter="openNested('containers', $event)"
+        @click="openNested('containers', $event)"
+      >
+        {{ t("editor.containerGroup") }}
+        <span class="arrow">›</span>
+      </button>
+      <button
+        type="button"
+        class="row has-sub"
+        role="menuitem"
+        @mouseenter="openNested('align', $event)"
+        @click="openNested('align', $event)"
+      >
+        {{ t("editor.alignGroup") }}
+        <span class="arrow">›</span>
+      </button>
+      <button
+        type="button"
+        class="row has-sub"
+        role="menuitem"
+        @mouseenter="openNested('emoji', $event)"
+        @click="openNested('emoji', $event)"
+      >
+        {{ t("editor.emoji") }}
+        <span class="arrow">›</span>
+      </button>
+      <div class="divider" />
+      <button
+        type="button"
+        class="row"
+        @mouseenter="nested = null"
+        @click="run(insertHr)"
+      >
         {{ t("editor.hr") }}
       </button>
-      <button type="button" class="row" @click="run(insertTable)">
+      <button
+        type="button"
+        class="row"
+        @mouseenter="nested = null"
+        @click="run(insertTable)"
+      >
         <span>{{ t("editor.table") }}</span>
         <kbd>Ctrl+T</kbd>
       </button>
-      <button type="button" class="row" @click="run(insertCode)">
+      <button
+        type="button"
+        class="row"
+        @mouseenter="nested = null"
+        @click="run(insertCode)"
+      >
         <span>{{ t("editor.codeBlock") }}</span>
         <kbd>Ctrl+Shift+K</kbd>
       </button>
-      <button type="button" class="row" @click="run(insertMath)">
+      <button
+        type="button"
+        class="row"
+        @mouseenter="nested = null"
+        @click="run(insertMath)"
+      >
         <span>{{ t("editor.mathBlock") }}</span>
         <kbd>Ctrl+Shift+M</kbd>
       </button>
-      <button type="button" class="row" @click="run(insertToc)">
+      <button
+        type="button"
+        class="row"
+        @mouseenter="nested = null"
+        @click="run(insertToc)"
+      >
         {{ t("editor.toc") }}
       </button>
-      <button type="button" class="row" @click="run(insertYaml)">
+      <button
+        type="button"
+        class="row"
+        @mouseenter="nested = null"
+        @click="run(insertYaml)"
+      >
         {{ t("editor.yamlFm") }}
       </button>
       <div class="divider" />
-      <button type="button" class="row" @click="run(() => insertPara('above'))">
+      <button
+        type="button"
+        class="row"
+        @mouseenter="nested = null"
+        @click="run(() => insertPara('above'))"
+      >
         {{ t("editor.paraAbove") }}
       </button>
-      <button type="button" class="row" @click="run(() => insertPara('below'))">
+      <button
+        type="button"
+        class="row"
+        @mouseenter="nested = null"
+        @click="run(() => insertPara('below'))"
+      >
         {{ t("editor.paraBelow") }}
       </button>
     </div>
 
     <div
-      v-if="open && submenu === 'ai'"
+      v-if="open && submenu === 'insert' && nested === 'containers'"
+      ref="nestPanelRef"
+      class="ctx-sub ctx-nest"
+      :style="nestStyle"
+      role="menu"
+      @mouseenter="onFlyoutEnter"
+      @mouseleave="onFlyoutLeave"
+    >
+      <button
+        type="button"
+        class="row"
+        @click="run(() => insertContainer('tip'))"
+      >
+        {{ t("editor.containerTip") }}
+      </button>
+      <button
+        type="button"
+        class="row"
+        @click="run(() => insertContainer('info'))"
+      >
+        {{ t("editor.containerInfo") }}
+      </button>
+      <button
+        type="button"
+        class="row"
+        @click="run(() => insertContainer('warning'))"
+      >
+        {{ t("editor.containerWarning") }}
+      </button>
+      <button
+        type="button"
+        class="row"
+        @click="run(() => insertContainer('danger'))"
+      >
+        {{ t("editor.containerDanger") }}
+      </button>
+      <button
+        type="button"
+        class="row"
+        @click="run(() => insertContainer('details'))"
+      >
+        {{ t("editor.containerDetails") }}
+      </button>
+    </div>
+
+    <div
+      v-if="open && submenu === 'insert' && nested === 'align'"
+      ref="nestPanelRef"
+      class="ctx-sub ctx-nest"
+      :style="nestStyle"
+      role="menu"
+      @mouseenter="onFlyoutEnter"
+      @mouseleave="onFlyoutLeave"
+    >
+      <button
+        type="button"
+        class="row"
+        @click="run(() => insertContainer('align-left'))"
+      >
+        {{ t("editor.alignLeft") }}
+      </button>
+      <button
+        type="button"
+        class="row"
+        @click="run(() => insertContainer('align-center'))"
+      >
+        {{ t("editor.alignCenter") }}
+      </button>
+      <button
+        type="button"
+        class="row"
+        @click="run(() => insertContainer('align-right'))"
+      >
+        {{ t("editor.alignRight") }}
+      </button>
+    </div>
+
+    <div
+      v-if="open && submenu === 'insert' && nested === 'emoji'"
+      ref="nestPanelRef"
+      class="ctx-sub ctx-nest ctx-emoji"
+      :style="nestStyle"
+      role="menu"
+      @mouseenter="onFlyoutEnter"
+      @mouseleave="onFlyoutLeave"
+    >
+      <div class="emoji-grid" role="group" :aria-label="t('editor.emoji')">
+        <button
+          v-for="e in EMOJI_CATALOG"
+          :key="e.id"
+          type="button"
+          class="emoji-cell"
+          :title="e.label"
+          :aria-label="e.label"
+          @click="run(() => insertEmoji(e.char))"
+        >
+          {{ e.char }}
+        </button>
+      </div>
+    </div>
+
+    <div
+      v-if="open && submenu === 'codeHl'"
+      ref="subPanelRef"
       class="ctx-sub"
       :style="subStyle"
       role="menu"
-      @mouseleave="submenu = null"
+      @mouseenter="onFlyoutEnter"
+      @mouseleave="onFlyoutLeave"
+    >
+      <button
+        type="button"
+        class="row"
+        role="menuitem"
+        :disabled="!codeHlCtx?.canSet"
+        @click="run(highlightSelectedCodeLines)"
+      >
+        {{ t("editor.highlightSelectedLines") }}
+      </button>
+      <button
+        type="button"
+        class="row"
+        role="menuitem"
+        :disabled="!codeHlCtx?.canClear"
+        @click="run(clearCodeLineHighlight)"
+      >
+        {{ t("editor.clearLineHighlight") }}
+      </button>
+    </div>
+
+    <div
+      v-if="open && submenu === 'ai'"
+      ref="subPanelRef"
+      class="ctx-sub"
+      :style="subStyle"
+      role="menu"
+      @mouseenter="onFlyoutEnter"
+      @mouseleave="onFlyoutLeave"
     >
       <button
         type="button"
@@ -560,8 +973,45 @@ onUnmounted(() => {
 
 .ctx-sub {
   min-width: 210px;
-  max-height: min(70vh, 420px);
-  overflow: auto;
+  max-height: calc(100vh - 16px);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.ctx-nest {
+  z-index: 10001;
+  min-width: 160px;
+}
+
+.ctx-emoji {
+  min-width: 0;
+  padding: 8px;
+}
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 32px);
+  gap: 2px;
+}
+
+.emoji-cell {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.emoji-cell:hover {
+  background: rgba(112, 113, 125, 0.35);
 }
 
 .row {
@@ -580,9 +1030,14 @@ onUnmounted(() => {
   font-size: 13px;
 }
 
-.row:hover,
+.row:hover:not(:disabled),
 .row.has-sub:hover {
   background: rgba(112, 113, 125, 0.35);
+}
+
+.row:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .arrow {

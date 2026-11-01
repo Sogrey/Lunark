@@ -17,6 +17,7 @@ const tipKeys = [
   "shell.tipWorkspaceSearch",
   "shell.tipFocus",
   "shell.tipTypewriter",
+  "shell.tipFullscreen",
   "shell.tipSave",
 ] as const;
 
@@ -69,6 +70,10 @@ function refreshSelection() {
 
 function setMode(mode: "hybrid" | "source" | "split") {
   editor.setViewMode(mode);
+}
+
+function toggleFullscreen() {
+  window.dispatchEvent(new CustomEvent("lunark:menu-toggle-fullscreen"));
 }
 
 watch(
@@ -192,6 +197,21 @@ onUnmounted(() => {
           <path
             fill="currentColor"
             d="M3 3.5h10v1.2H3V3.5zm0 2.5h10V7H3V6zm0 2.5h6V10H3V8.5zM8.5 11h1.2v1.5H11v1H5.5v-1H7V11h1.5z"
+          />
+        </svg>
+      </button>
+      <button
+        v-if="editor.windowFullscreen"
+        type="button"
+        class="icon-btn warn"
+        :title="`${t('menu.fullscreen')} ×`"
+        :aria-label="t('menu.fullscreen')"
+        @click="toggleFullscreen"
+      >
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+          <path
+            fill="currentColor"
+            d="M2 2h4v1.2H3.2V6H2V2zm8 0h4v4h-1.2V3.2H10V2zM2 10h1.2v2.8H6V14H2v-4zm8 2.8V14h4v-4h-1.2v2.8H10z"
           />
         </svg>
       </button>

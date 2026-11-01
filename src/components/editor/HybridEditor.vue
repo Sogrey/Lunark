@@ -31,6 +31,15 @@ import {
 } from "@/lib/editor/docSearch";
 import { lunarkHybridSourceMarks } from "@/lib/editor/hybrid/sourceMarksPlugin";
 import { lunarkHybridMarkdownInput } from "@/lib/editor/hybridMarkdownInput";
+import { ensureKatexCss } from "@/lib/markdown/katexLazy";
+import {
+  containersToHybridFences,
+  hybridFencesToContainers,
+} from "@/lib/markdown/containerHybrid";
+import {
+  footnotesToHybrid,
+  hybridFootnotesToCanonical,
+} from "@/lib/markdown/footnotes";
 
 import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/common/reset.css";
@@ -99,25 +108,36 @@ function isEffectivelyEmpty(md: string): boolean {
   return normalizeDocText(md).trim().length === 0;
 }
 
+function toHybrid(md: string): string {
+  return footnotesToHybrid(containersToHybridFences(normalizeDocText(md)));
+}
+
+function toCanonical(md: string): string {
+  return hybridFootnotesToCanonical(
+    hybridFencesToContainers(normalizeDocText(md)),
+  );
+}
+
 function docsMatch(got: string, want: string): boolean {
   if (got === want) return true;
   if (isEffectivelyEmpty(got) && isEffectivelyEmpty(want)) return true;
-  return normalizeDocText(got) === normalizeDocText(want);
+  return toCanonical(got) === toCanonical(want);
 }
 
 function writeToOwnedTab(markdown: string) {
   const tab = tabs.tabs.find((t) => t.id === ownedTabId);
   if (!tab) return;
-  if (tab.content === "" && isEffectivelyEmpty(markdown)) return;
-  if (tab.content === markdown) return;
-  tab.content = markdown;
+  const canonical = toCanonical(markdown);
+  if (tab.content === "" && isEffectivelyEmpty(canonical)) return;
+  if (tab.content === canonical) return;
+  tab.content = canonical;
   tab.dirty = true;
 }
 
 function flushOwnedTab() {
   if (!crepe || !ready) return;
   try {
-    const md = crepe.getMarkdown();
+    const md = toCanonical(crepe.getMarkdown());
     const tab = tabs.tabs.find((t) => t.id === ownedTabId);
     if (!tab) return;
     if (tab.content === "" && isEffectivelyEmpty(md)) return;
@@ -129,8 +149,8 @@ function flushOwnedTab() {
 
 function loadMarkdown(md: string) {
   if (!crepe) return;
-  const payload = md.length === 0 ? "\n" : md;
-  crepe.editor.action(replaceAll(payload, true));
+  const hybrid = toHybrid(md.length === 0 ? "\n" : md);
+  crepe.editor.action(replaceAll(hybrid, true));
 }
 
 function bindBridgesIfActive() {
@@ -156,8 +176,11 @@ async function mountCrepe() {
     return;
   }
 
+  // Crepe Latex 功能需要 KaTeX 样式；按需注入，不进 main 首屏 CSS
+  void ensureKatexCss();
+
   const config = buildCrepeConfig(
-    initialMarkdown.length === 0 ? "\n" : initialMarkdown,
+    toHybrid(initialMarkdown.length === 0 ? "\n" : initialMarkdown),
   );
   config.root = root.value;
 

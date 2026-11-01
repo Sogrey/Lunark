@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
 import { useI18n } from "vue-i18n";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { dirname, isAbsolute, join } from "@tauri-apps/api/path";
@@ -12,6 +19,10 @@ import { useDocumentActions } from "@/composables/useDocumentActions";
 import { renderMarkdown } from "@/lib/markdown/renderer";
 import { resolvePreviewImages } from "@/lib/markdown/images";
 import { applyTocIdsToHtml, extractToc } from "@/lib/markdown/toc";
+import {
+  ACTIVE_HEADING_OFFSET_PX,
+  resolveActiveHeadingId,
+} from "@/lib/markdown/activeHeading";
 import { clearMermaidCache } from "@/lib/markdown/mermaid";
 import {
   previewBlockCache,
@@ -29,6 +40,8 @@ const theme = useThemeStore();
 const { openPathInTab } = useDocumentActions();
 const html = ref("");
 const pane = ref<HTMLElement | null>(null);
+const lightboxSrc = ref<string | null>(null);
+const lightboxAlt = ref("");
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 let renderSeq = 0;
@@ -58,6 +71,35 @@ async function runRender(source: string, docPath: string | null) {
   const withAssets = await resolvePreviewImages(withIds, docPath);
   if (seq !== renderSeq) return;
   html.value = withAssets;
+  void nextTick(() => updateActiveHeading());
+}
+
+function updateActiveHeading() {
+  const root = pane.value;
+  if (!root) {
+    editor.setActiveHeadingId(null);
+    return;
+  }
+  const write = root.querySelector("#write");
+  if (!write) {
+    editor.setActiveHeadingId(null);
+    return;
+  }
+  const rootTop = root.getBoundingClientRect().top;
+  const headings = Array.from(
+    write.querySelectorAll("h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]"),
+  ).map((el) => ({
+    id: el.id,
+    top: el.getBoundingClientRect().top - rootTop,
+  }));
+  const next = resolveActiveHeadingId(headings, ACTIVE_HEADING_OFFSET_PX);
+  if (next !== editor.activeHeadingId) {
+    editor.setActiveHeadingId(next);
+  }
+}
+
+function onPreviewScroll() {
+  updateActiveHeading();
 }
 
 watch(
@@ -66,9 +108,9 @@ watch(
   { immediate: true },
 );
 
-/** 主题明暗变化时重渲代码块 / Mermaid */
+/** 主题明暗 / 行号开关变化时重渲代码块 / Mermaid */
 watch(
-  () => [theme.themeId, theme.isDark] as const,
+  () => [theme.themeId, theme.isDark, editor.codeLineNumbers] as const,
   () => {
     clearMermaidCache();
     previewBlockCache.clear();
@@ -105,8 +147,62 @@ async function resolveLocalPath(href: string): Promise<string | null> {
   return null;
 }
 
+function openLightbox(img: HTMLImageElement) {
+  const src = img.currentSrc || img.getAttribute("src") || "";
+  if (!src) return;
+  lightboxSrc.value = src;
+  lightboxAlt.value = img.alt || "";
+}
+
+function closeLightbox() {
+  lightboxSrc.value = null;
+  lightboxAlt.value = "";
+}
+
+function onLightboxKey(e: KeyboardEvent) {
+  if (e.key === "Escape" && lightboxSrc.value) {
+    e.preventDefault();
+    e.stopPropagation();
+    closeLightbox();
+  }
+}
+
 async function onPreviewClick(event: MouseEvent) {
   const target = event.target as HTMLElement | null;
+
+  const img = target?.closest?.("img") as HTMLImageElement | null;
+  if (img && pane.value?.contains(img)) {
+    event.preventDefault();
+    event.stopPropagation();
+    openLightbox(img);
+    return;
+  }
+
+  const copyBtn = target?.closest?.(
+    "[data-lunark-copy]",
+  ) as HTMLButtonElement | null;
+  if (copyBtn) {
+    event.preventDefault();
+    event.stopPropagation();
+    const block = copyBtn.closest(".lunark-code-block");
+    const pre = block?.querySelector(":scope > pre");
+    const text = pre?.textContent ?? "";
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      const prev = copyBtn.textContent;
+      copyBtn.textContent = t("help.copied");
+      copyBtn.classList.add("is-copied");
+      window.setTimeout(() => {
+        copyBtn.textContent = prev || t("help.copy");
+        copyBtn.classList.remove("is-copied");
+      }, 1200);
+    } catch {
+      ElMessage.warning(t("msg.copyFail"));
+    }
+    return;
+  }
+
   const anchor = target?.closest?.("a") as HTMLAnchorElement | null;
   if (!anchor) return;
 
@@ -182,13 +278,22 @@ async function onPreviewClick(event: MouseEvent) {
 onMounted(() => {
   clearMermaidCache();
   editor.setPreviewEl(pane.value);
+  pane.value?.addEventListener("scroll", onPreviewScroll, { passive: true });
+  window.addEventListener("keydown", onLightboxKey, true);
+  void nextTick(() => updateActiveHeading());
 });
 
-watch(pane, (el) => {
+watch(pane, (el, prev) => {
+  prev?.removeEventListener("scroll", onPreviewScroll);
   editor.setPreviewEl(el);
+  el?.addEventListener("scroll", onPreviewScroll, { passive: true });
+  void nextTick(() => updateActiveHeading());
 });
 
 onBeforeUnmount(() => {
+  pane.value?.removeEventListener("scroll", onPreviewScroll);
+  window.removeEventListener("keydown", onLightboxKey, true);
+  closeLightbox();
   editor.setPreviewEl(null);
 });
 
@@ -205,6 +310,32 @@ const empty = computed(() => !editor.content.trim());
       v-html="html"
     />
   </div>
+
+  <Teleport to="body">
+    <div
+      v-if="lightboxSrc"
+      class="img-lightbox"
+      role="dialog"
+      :aria-label="t('editor.imageLightbox')"
+      @click.self="closeLightbox"
+    >
+      <button
+        type="button"
+        class="img-lightbox-close"
+        :title="t('help.close')"
+        :aria-label="t('help.close')"
+        @click="closeLightbox"
+      >
+        ×
+      </button>
+      <img
+        class="img-lightbox-photo"
+        :src="lightboxSrc"
+        :alt="lightboxAlt"
+        @click.stop
+      />
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
@@ -223,7 +354,54 @@ const empty = computed(() => !editor.content.trim());
 
 .preview-pane :deep(.markdown-preview img) {
   max-width: 100%;
+  cursor: zoom-in;
+}
+
+.preview-pane :deep(.markdown-preview img:not([height])) {
   height: auto;
+}
+
+.img-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.72);
+  cursor: zoom-out;
+}
+
+.img-lightbox-photo {
+  max-width: min(96vw, 1400px);
+  max-height: 92vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  cursor: default;
+}
+
+.img-lightbox-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 1;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.img-lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .preview-pane :deep(.markdown-preview .task-list-item input) {

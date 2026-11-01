@@ -7,21 +7,27 @@ import {
   MAIN_CREDITS,
   formatCreditsPlain,
 } from "@/lib/help/credits";
+import { SYNTAX_HELP_ROWS } from "@/lib/help/syntax";
 
-type Panel = "about" | "shortcuts" | null;
+type Panel = "about" | "shortcuts" | "syntax" | null;
 
 const { t } = useI18n();
 const panel = ref<Panel>(null);
 const copied = ref(false);
 let copiedTimer: ReturnType<typeof setTimeout> | null = null;
 
-const title = computed(() =>
-  panel.value === "about"
-    ? t("help.aboutTitle")
-    : panel.value === "shortcuts"
-      ? t("help.shortcutsTitle")
-      : "",
-);
+const title = computed(() => {
+  switch (panel.value) {
+    case "about":
+      return t("help.aboutTitle");
+    case "shortcuts":
+      return t("help.shortcutsTitle");
+    case "syntax":
+      return t("help.syntaxTitle");
+    default:
+      return "";
+  }
+});
 
 const aboutBody = computed(() => t("help.aboutBody", { version: APP_VERSION }));
 
@@ -38,6 +44,9 @@ function openAbout() {
 }
 function openShortcuts() {
   panel.value = "shortcuts";
+}
+function openSyntax() {
+  panel.value = "syntax";
 }
 function close() {
   panel.value = null;
@@ -61,6 +70,7 @@ function onHelp(e: Event) {
   const kind = (e as CustomEvent).detail;
   if (kind === "about") openAbout();
   else if (kind === "shortcuts") openShortcuts();
+  else if (kind === "syntax") openSyntax();
 }
 
 function onKey(e: KeyboardEvent) {
@@ -86,7 +96,7 @@ onUnmounted(() => {
     <div v-if="panel" class="help-backdrop" @click.self="close">
       <div
         class="help-panel"
-        :class="{ about: panel === 'about' }"
+        :class="{ wide: panel === 'about' || panel === 'syntax' }"
         role="dialog"
         :aria-label="title"
       >
@@ -120,6 +130,23 @@ onUnmounted(() => {
               </tr>
             </tbody>
           </table>
+        </div>
+        <div v-else-if="panel === 'syntax'" class="help-body syntax">
+          <p class="tip">{{ t("help.syntaxIntro") }}</p>
+          <section
+            v-for="row in SYNTAX_HELP_ROWS"
+            :key="row.id"
+            class="sx-block"
+          >
+            <h3 class="sx-title">
+              {{ t(row.titleKey) }}
+              <span v-if="row.dialect" class="sx-badge">{{
+                t("help.dialectBadge")
+              }}</span>
+            </h3>
+            <p v-if="row.noteKey" class="sx-note">{{ t(row.noteKey) }}</p>
+            <pre class="sx-sample"><code>{{ row.sample }}</code></pre>
+          </section>
         </div>
         <div v-else class="help-body shortcuts">
           <table>
@@ -176,9 +203,58 @@ onUnmounted(() => {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
 }
 
-.help-panel.about {
+.help-panel.wide {
   width: min(560px, 94vw);
   max-height: min(86vh, 720px);
+}
+
+.sx-block {
+  margin: 0 0 1.1rem;
+}
+
+.sx-title {
+  margin: 0 0 0.35rem;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.sx-badge {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  color: var(--primary-color);
+  border: 1px solid var(--border-color);
+  background: var(--item-hover-bg-color, transparent);
+}
+
+.sx-note {
+  margin: 0 0 0.4rem;
+  color: var(--control-text-color);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.sx-sample {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 6px;
+  background: var(--code-bg, var(--rawblock-edit-panel-bd, #1a1d21));
+  border: 1px solid var(--border-color);
+  overflow: auto;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.sx-sample code {
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono",
+    Menlo, monospace;
 }
 
 .help-head {

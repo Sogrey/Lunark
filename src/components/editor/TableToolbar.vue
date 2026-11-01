@@ -62,10 +62,32 @@ function resolveFromSource(): boolean {
   const coords = view.coordsAtPos(view.state.doc.line(table.start + 1).from);
   if (!coords) return false;
   const editorBox = view.scrollDOM.getBoundingClientRect();
-  top.value = coords.top - 36;
+  // 工具条高 32px，再留 8px 空隙
+  top.value = coords.top - 40;
   left.value = editorBox.left + 8;
   width.value = Math.max(200, editorBox.width - 16);
   return true;
+}
+
+/** 当前加了工具条垫高的表格块（hybrid） */
+let paddedBlock: HTMLElement | null = null;
+
+function clearTableToolbarPad() {
+  if (!paddedBlock) return;
+  paddedBlock.classList.remove("lunark-table-toolbar-pad");
+  paddedBlock = null;
+}
+
+function applyTableToolbarPad(tableEl: HTMLElement) {
+  const block =
+    (tableEl.closest(".milkdown-table-block") as HTMLElement | null) ?? tableEl;
+  if (paddedBlock !== block) {
+    clearTableToolbarPad();
+    block.classList.add("lunark-table-toolbar-pad");
+    paddedBlock = block;
+  }
+  // 强制 reflow，确保 padding 生效后再量工具条位置
+  void block.offsetHeight;
 }
 
 function resolveFromHybrid(): boolean {
@@ -84,8 +106,12 @@ function resolveFromHybrid(): boolean {
   if (!tableEl.closest(".hybrid-editor")) return false;
 
   col.value = cellColumnFromDom(cell);
+  // 先垫高再量位置，工具条落在临时空隙内
+  applyTableToolbarPad(tableEl as HTMLElement);
   const rect = tableEl.getBoundingClientRect();
-  top.value = rect.top - 36;
+  const barH = 32;
+  const gap = 6;
+  top.value = Math.max(8, rect.top - barH - gap);
   left.value = rect.left;
   width.value = rect.width;
 
@@ -104,7 +130,10 @@ function resolveFromHybrid(): boolean {
     bodyRowCount,
     tableIndexAmongAll,
   });
-  if (!found) return false;
+  if (!found) {
+    clearTableToolbarPad();
+    return false;
+  }
   tableRef.value = found;
   align.value = getColumnAlign(found, col.value);
   const tr = cell.closest("tr");
@@ -120,6 +149,7 @@ function refresh() {
   if (!ok) {
     menuOpen.value = false;
     tableRef.value = null;
+    clearTableToolbarPad();
   }
   visible.value = ok;
 }
@@ -224,6 +254,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  clearTableToolbarPad();
   document.removeEventListener("selectionchange", refresh);
   document.removeEventListener("keyup", refresh);
   document.removeEventListener("mouseup", refresh);
