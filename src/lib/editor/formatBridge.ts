@@ -4,7 +4,14 @@ import type {
   CrepeBlockAction,
   CrepeMarkAction,
 } from "@/lib/editor/crepeCommands";
+import {
+  applyCmCodeBlockHighlight,
+  inspectCmCodeBlockHighlight,
+  type CodeBlockHighlightState,
+} from "@/lib/editor/codeBlockHighlight";
 import { t } from "@/lib/i18n";
+
+export type { CodeBlockHighlightState };
 
 /** 编辑器格式化桥：源码 CM 与混合 Crepe 共用 */
 export interface FormatBridge {
@@ -18,12 +25,18 @@ export interface FormatBridge {
   insertSnippet: (md: string, selectPlaceholder?: boolean) => void;
   deleteSelection: () => void;
   getSelectedText: () => string;
+  /** 当前文档 Markdown（用于分配脚注 id 等） */
+  getMarkdown: () => string;
   replaceSelection: (text: string) => void;
   focus: () => void;
   /** 仅全选编辑器文档，不选中壳层 UI */
   selectAll: () => void;
   undo: () => void;
   redo: () => void;
+  /** 光标所在代码块的行高亮上下文；不在代码块内为 null */
+  inspectCodeBlockHighlight: () => CodeBlockHighlightState | null;
+  /** 用当前选中行写入围栏 `{…}`；lines=null 清除 */
+  applyCodeBlockHighlight: (lines: readonly number[] | null) => boolean;
 }
 
 let bridge: FormatBridge | null = null;
@@ -77,8 +90,9 @@ function cmBlockAction(
       helpers.toggleLinePrefix("- [ ] ");
       break;
     case "image":
-      helpers.insertSnippet(
-        `![${t("editor.imageAlt")}](./assets/image.png)`,
+      // 与右键/命令面板一致：选文件走统一图床/assets 管线
+      void import("@/lib/editor/pickInsertImages").then((m) =>
+        m.pickAndInsertImages(),
       );
       break;
     case "codeBlock":
@@ -225,9 +239,16 @@ export function createCmFormatBridge(
       let insert = md;
       if (before !== "\n" && !insert.startsWith("\n")) insert = `\n${insert}`;
       if (!insert.endsWith("\n")) insert = `${insert}\n`;
+      // 脚注：插入后选中 id，方便改成 note 等自定义标签
+      const fn = insert.match(/\[\^([^\]]+)\]/);
+      const idStart = fn ? insert.indexOf(`[^${fn[1]}]`) + 2 : -1;
+      const anchor =
+        idStart >= 0 ? from + idStart : from + insert.length;
+      const head =
+        idStart >= 0 && fn ? anchor + fn[1]!.length : from + insert.length;
       v.dispatch({
         changes: { from, to, insert },
-        selection: { anchor: from + insert.length },
+        selection: { anchor, head },
         scrollIntoView: true,
       });
       v.focus();
@@ -249,6 +270,12 @@ export function createCmFormatBridge(
       if (!v) return "";
       const { from, to } = v.state.selection.main;
       return v.state.doc.sliceString(from, to);
+    },
+
+    getMarkdown() {
+      const v = getView();
+      if (!v) return "";
+      return v.state.doc.toString();
     },
 
     replaceSelection(text) {
@@ -288,6 +315,18 @@ export function createCmFormatBridge(
       if (!v) return;
       cmRedo(v);
       v.focus();
+    },
+
+    inspectCodeBlockHighlight() {
+      const v = getView();
+      if (!v) return null;
+      return inspectCmCodeBlockHighlight(v);
+    },
+
+    applyCodeBlockHighlight(lines) {
+      const v = getView();
+      if (!v) return false;
+      return applyCmCodeBlockHighlight(v, lines);
     },
   };
 

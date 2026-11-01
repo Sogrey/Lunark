@@ -59,6 +59,18 @@ export function bindSourceTextarea(
     }
   };
 
+  const restoreCaret = (start: number, end: number) => {
+    if (view.isDestroyed) return;
+    if (document.activeElement !== input) {
+      input.focus({ preventScroll: true });
+    }
+    try {
+      input.setSelectionRange(start, end);
+    } catch {
+      /* ignore */
+    }
+  };
+
   const scheduleLiveUpdate = () => {
     if (!onLiveUpdate) return;
     clearLiveTimer();
@@ -68,15 +80,8 @@ export function bindSourceTextarea(
       const start = input.selectionStart;
       const end = input.selectionEnd;
       onLiveUpdate();
-      // dispatch 后 ProseMirror 可能抢焦点，源码条编辑中需收回
-      if (document.activeElement !== input && !view.isDestroyed) {
-        input.focus({ preventScroll: true });
-        try {
-          input.setSelectionRange(start, end);
-        } catch {
-          /* ignore */
-        }
-      }
+      // dispatch / 重绘后 WebView2 常丢 caret 闪烁，强制收回选区
+      requestAnimationFrame(() => restoreCaret(start, end));
     }, liveUpdateMs);
   };
 

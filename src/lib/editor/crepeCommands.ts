@@ -139,6 +139,37 @@ export function runCrepeBlockAction(
   }
 }
 
+/**
+ * 插入带语言与正文的代码块（提示块 / Mermaid 等预览块）。
+ * 必须一次创建完整 Node：先空块再 insertText 会把正文插到块外。
+ * addBlockTypeCommand 支持传入已建好的 Node（见 milkdown replaceSelectionWith）。
+ */
+export function insertCrepeCodeBlock(
+  crepe: Crepe,
+  language: string,
+  content: string,
+): void {
+  try {
+    crepe.editor.action((ctx) => {
+      const commands = ctx.get(commandsCtx);
+      const view = ctx.get(editorViewCtx);
+      const type = codeBlockSchema.type(ctx);
+      const textNode =
+        content.length > 0 ? view.state.schema.text(content) : null;
+      const node = textNode
+        ? type.create({ language }, textNode)
+        : type.createAndFill({ language });
+      if (!node) return;
+      commands.call(addBlockTypeCommand.key, {
+        nodeType: node,
+      });
+      view.focus();
+    });
+  } catch (e) {
+    console.warn("[lunark] insert code block failed", language, e);
+  }
+}
+
 /** 与 Crepe 选区工具条同源的标记切换 */
 export function runCrepeMarkAction(crepe: Crepe, action: CrepeMarkAction): void {
   try {

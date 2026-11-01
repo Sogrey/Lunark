@@ -5,9 +5,12 @@ import { dirname, isAbsolute, join } from "@tauri-apps/api/path";
 import { Crepe, type CrepeConfig } from "@milkdown/crepe";
 import { ElMessage } from "element-plus";
 import { useEditorStore } from "@/stores/editor";
-import { isImageFile, saveDroppedImages } from "@/lib/fs/imageDrop";
-import { uploadFilesToPicgo } from "@/lib/fs/picgo";
+import { resolveOneImageFile } from "@/lib/editor/resolveImages";
 import { renderMermaidSvg } from "@/lib/markdown/mermaid";
+import {
+  isContainerKind,
+  renderContainerPreviewHtml,
+} from "@/lib/markdown/containers";
 import { t } from "@/lib/i18n";
 
 function looksAbsoluteLocal(src: string): boolean {
@@ -38,46 +41,30 @@ async function resolveLocalImageUrl(url: string): Promise<string> {
   }
 }
 
-/** 远程图床优先，失败或未开启则写入 ./assets/；返回 URL 或相对路径 */
+/** 与粘贴/拖放/选文件同一管线；返回 URL 或相对路径 */
 async function uploadImageFile(file: File): Promise<string> {
-  if (!isImageFile(file)) {
-    throw new Error(t("msg.imageOnly"));
-  }
-  const editor = useEditorStore();
-  if (editor.picgoEnabled) {
-    try {
-      const { urls } = await uploadFilesToPicgo(
-        [file],
-        editor.picgoEndpoint,
-      );
-      if (urls[0]) return urls[0];
-    } catch (e) {
-      ElMessage.warning(
-        e instanceof Error ? e.message : t("msg.picgoFail"),
-      );
-    }
-  }
-  if (!editor.filePath) {
-    ElMessage.warning(t("msg.saveDocBeforeImage"));
-    throw new Error(t("msg.docUnsaved"));
-  }
-  const snippets = await saveDroppedImages([file], editor.filePath);
-  const first = snippets[0] ?? "";
-  const m = first.match(/\(([^)]+)\)/);
-  if (!m?.[1]) throw new Error(t("msg.imageSaveFail"));
-  return m[1];
+  return resolveOneImageFile(file);
 }
 
 /**
  * Crepe 异步预览必须走 applyPreview；直接返回 HTMLElement 会被 sanitize 成
  * 当时的字符串快照，后续改 DOM 不会反映到面板上（表现为一直「渲染中」）。
+ * 同步 HTML（提示块等）可直接 return 字符串。
  */
-function renderMermaidPreview(
+function renderCodePreview(
   language: string,
   content: string,
   applyPreview: (value: null | string | HTMLElement) => void,
-): void | null {
-  if (language.toLowerCase() !== "mermaid") return null;
+): void | null | string {
+  const lang = language.toLowerCase();
+
+  if (isContainerKind(lang)) {
+    const html = renderContainerPreviewHtml(lang, content);
+    applyPreview(html || null);
+    return html || null;
+  }
+
+  if (lang !== "mermaid") return null;
   const code = content.trim();
   if (!code) {
     applyPreview(null);
@@ -157,7 +144,7 @@ export function buildCrepeConfig(defaultValue: string): CrepeConfig {
           previewOnly ? t("editor.edit") : t("editor.preview"),
         previewLabel: t("editor.preview"),
         previewLoading: t("editor.mermaidRendering"),
-        renderPreview: renderMermaidPreview,
+        renderPreview: renderCodePreview,
       },
       [Crepe.Feature.ImageBlock]: {
         onUpload: uploadImageFile,

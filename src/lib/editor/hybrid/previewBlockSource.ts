@@ -2,6 +2,11 @@ import type { Node as PmNode } from "@milkdown/kit/prose/model";
 import { NodeSelection, type EditorState } from "@milkdown/kit/prose/state";
 import type { EditorView } from "@milkdown/kit/prose/view";
 import { t } from "@/lib/i18n";
+import {
+  fenceBodyToContainer,
+  isContainerLang,
+} from "@/lib/markdown/containerHybrid";
+import { CONTAINER_KINDS } from "@/lib/markdown/containers";
 import { createTrashDeleteButton, deleteNodeAt } from "./blockDeleteUi";
 import { PREVIEW_FIRST_LANGS } from "./constants";
 import {
@@ -9,6 +14,8 @@ import {
   bindSourceTextarea,
   type SourceCache,
 } from "./sourceRowUi";
+
+const CONTAINER_KIND_ALT = CONTAINER_KINDS.join("|");
 
 let previewBlockCache: SourceCache | null = null;
 let pinnedPreviewBlockPos: number | null = null;
@@ -56,6 +63,9 @@ function formatPreviewBlockMarkdown(node: PmNode): string {
   const content = node.textContent;
   // 空内容不再包一层 $$，避免残留 $$$$
   if (!content.trim()) return "";
+  if (isContainerLang(lang)) {
+    return fenceBodyToContainer(lang, content);
+  }
   if (isLatexLang(lang)) {
     if (content.includes("\n")) return `$$\n${content}\n$$`;
     return `$$${content}$$`;
@@ -71,8 +81,12 @@ export function isVacantPreviewMarkdown(text: string): boolean {
   if (/^\$\$+\s*\$\$$/.test(trimmed)) return true;
   if (/^\$\$\s*$/.test(trimmed)) return true;
 
-  const fence = trimmed.match(/^```\w*\n([\s\S]*?)\n```$/);
+  const fence = trimmed.match(/^```[\w-]*\n([\s\S]*?)\n```$/);
   if (fence && !(fence[1] ?? "").trim()) return true;
+  const container = trimmed.match(
+    new RegExp(`^::: (?:${CONTAINER_KIND_ALT})(?:[^\\n]*)?\\n([\\s\\S]*?)\\n:::$`),
+  );
+  if (container && !(container[1] ?? "").trim()) return true;
 
   const dollarBlock = trimmed.match(/^\$\$\n([\s\S]*?)\n\$\$$/);
   if (dollarBlock && !(dollarBlock[1] ?? "").trim()) return true;
@@ -91,11 +105,25 @@ function parsePreviewMarkdown(
   let lang = fallbackLang;
   let content = trimmed;
 
-  const fence = trimmed.match(/^```(\w*)\n([\s\S]*?)\n```$/);
+  const container = trimmed.match(
+    new RegExp(
+      `^::: (${CONTAINER_KIND_ALT})(?:[ \\t]+([^\\n]*))?\\n([\\s\\S]*?)\\n:::$`,
+    ),
+  );
+  const fence = trimmed.match(/^```([\w-]*)\n([\s\S]*?)\n```$/);
   const dollarBlock = trimmed.match(/^\$\$\n([\s\S]*?)\n\$\$$/);
   const dollarInline = trimmed.match(/^\$\$([\s\S]*?)\$\$$/);
 
-  if (fence) {
+  if (container) {
+    const kind = container[1] ?? lang;
+    const title = (container[2] ?? "").trim();
+    const body = container[3] ?? "";
+    lang = kind;
+    content =
+      isContainerLang(kind) && !kind.startsWith("align-") && title
+        ? `${title}\n${body}`
+        : body;
+  } else if (fence) {
     lang = fence[1] || lang;
     content = fence[2] ?? "";
   } else if (dollarBlock) {
@@ -188,6 +216,7 @@ function liveApplyPreviewBlockMarkdown(
 function previewLabel(lang: string): string {
   if (lang === "mermaid") return "mermaid";
   if (isLatexLang(lang)) return "latex";
+  if (isContainerLang(lang)) return lang;
   return lang;
 }
 

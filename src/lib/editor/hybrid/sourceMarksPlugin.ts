@@ -25,6 +25,10 @@ import {
 } from "./previewBlockSource";
 import { collectInlineMarkDecorations } from "./inlineMarks";
 import {
+  collectFootnoteDecorations,
+  handleFootnoteSupMouseDown,
+} from "./footnotesDecorations";
+import {
   collectEmptyHeadingDecorations,
   collectHeadingDecoration,
 } from "./headings";
@@ -79,6 +83,7 @@ function buildDecorations(
   }
 
   decos.push(...collectInlineMarkDecorations(state));
+  decos.push(...collectFootnoteDecorations(state));
   decos.push(...collectHeadingDecoration(state));
   decos.push(...collectEmptyHeadingDecorations(state));
 
@@ -89,6 +94,7 @@ function buildDecorations(
  * 混合模式局部露出 Markdown 语法糖（对标 Typora）：
  * - 选中图片 / 行内公式 / 块级公式·Mermaid：上方可编辑源码，下方仍渲染
  * - 光标在行内 mark / 链接 / 标题内：显示分隔符
+ * - 脚注引用：阅读态上标，光标靠近时露出 [^id]
  * - 空标题：始终显示 `#`
  */
 export function lunarkHybridSourceMarks() {
@@ -114,6 +120,11 @@ export function lunarkHybridSourceMarks() {
       props: {
         decorations(state) {
           return buildDecorations(state, editorView);
+        },
+        handleDOMEvents: {
+          mousedown(view, event) {
+            return handleFootnoteSupMouseDown(view, event);
+          },
         },
         handleClickOn(view, _pos, node, nodePos, event, direct) {
           if (!direct || !isPreviewFirstCodeBlock(node)) return false;

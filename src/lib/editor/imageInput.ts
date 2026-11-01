@@ -5,21 +5,15 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { useDocumentActions } from "@/composables/useDocumentActions";
 import { useEditorStore } from "@/stores/editor";
 import { isMarkdownPath } from "@/lib/fs/documentIo";
-import {
-  isImageFile,
-  isImagePath,
-  saveDroppedImages,
-  saveImagesFromPaths,
-} from "@/lib/fs/imageDrop";
-import {
-  toMarkdownImagesFromUrls,
-  uploadFilesToPicgo,
-  uploadPathsToPicgo,
-} from "@/lib/fs/picgo";
+import { isImageFile, isImagePath } from "@/lib/fs/imageDrop";
 import {
   insertTextAtCursor,
   joinImageSnippets,
 } from "@/lib/editor/insertText";
+import {
+  resolveImageFiles,
+  resolveImagePaths,
+} from "@/lib/editor/resolveImages";
 import { clipboardToMarkdownTable } from "@/lib/editor/tablePaste";
 import { t } from "@/lib/i18n";
 
@@ -67,21 +61,11 @@ export async function insertDroppedOrPastedImages(
 ): Promise<boolean> {
   if (files.length === 0) return false;
 
-  const editor = useEditorStore();
-
   try {
-    if (editor.picgoEnabled) {
-      try {
-        const { urls } = await uploadFilesToPicgo(files, editor.picgoEndpoint);
-        return await finishInsert(toMarkdownImagesFromUrls(urls), source);
-      } catch (e) {
-        ElMessage.warning(
-          e instanceof Error ? e.message : t("msg.picgoFail"),
-        );
-        /* fall through to local assets */
-      }
-    }
-    if (!editor.filePath) {
+    const { snippets } = await resolveImageFiles(files);
+    return await finishInsert(snippets, source);
+  } catch (e) {
+    if (e instanceof Error && e.message === "DOC_UNSAVED") {
       ElMessage.warning(
         source === "paste"
           ? t("msg.saveBeforePasteImage")
@@ -89,9 +73,6 @@ export async function insertDroppedOrPastedImages(
       );
       return true;
     }
-    const snippets = await saveDroppedImages(files, editor.filePath);
-    return await finishInsert(snippets, source);
-  } catch (e) {
     ElMessage.error(
       e instanceof Error
         ? e.message
@@ -109,35 +90,21 @@ export async function insertImagesFromOsPaths(
 ): Promise<boolean> {
   if (paths.length === 0) return false;
 
-  const editor = useEditorStore();
   const imagePaths = paths.filter(isImagePath);
   if (imagePaths.length === 0) return false;
 
   try {
-    if (editor.picgoEnabled) {
-      try {
-        const { urls } = await uploadPathsToPicgo(
-          imagePaths,
-          editor.picgoEndpoint,
-        );
-        return await finishInsert(toMarkdownImagesFromUrls(urls), "drop");
-      } catch (e) {
-        ElMessage.warning(
-          e instanceof Error ? e.message : t("msg.picgoFail"),
-        );
-      }
-    }
-    if (!editor.filePath) {
-      ElMessage.warning(t("msg.saveBeforeDropImage"));
-      return true;
-    }
-    const snippets = await saveImagesFromPaths(imagePaths, editor.filePath);
+    const { snippets } = await resolveImagePaths(imagePaths);
     if (snippets.length === 0) {
       ElMessage.info(t("msg.noImageRecognized"));
       return true;
     }
     return await finishInsert(snippets, "drop");
   } catch (e) {
+    if (e instanceof Error && e.message === "DOC_UNSAVED") {
+      ElMessage.warning(t("msg.saveBeforeDropImage"));
+      return true;
+    }
     ElMessage.error(e instanceof Error ? e.message : t("msg.imageInsertFail"));
     return true;
   }
