@@ -67,6 +67,8 @@ export interface AppPrefs {
   window: WindowGeometry | null;
   /** 源码模式英文拼写波浪线 */
   spellCheckEnabled: boolean;
+  /** 预览代码块行号 */
+  codeLineNumbers: boolean;
   /** 粘贴/拖图走远程图床（与 imageHosts 联动） */
   picgoEnabled: boolean;
   /** 兼容旧 prefs：等于当前 active host 的 endpoint */
@@ -106,6 +108,7 @@ export const DEFAULT_PREFS: AppPrefs = {
   recentFiles: [],
   window: null,
   spellCheckEnabled: false,
+  codeLineNumbers: false,
   picgoEnabled: false,
   picgoEndpoint: DEFAULT_PICGO_ENDPOINT,
   imageHosts: createDefaultImageHosts(),
@@ -224,6 +227,7 @@ export function normalizePrefs(raw: unknown): AppPrefs {
     recentFiles: parseRecent(p.recentFiles),
     window: parseWindow(p.window),
     spellCheckEnabled: p.spellCheckEnabled === true,
+    codeLineNumbers: p.codeLineNumbers === true,
     picgoEnabled: p.picgoEnabled === true,
     picgoEndpoint:
       typeof p.picgoEndpoint === "string" && p.picgoEndpoint.trim()

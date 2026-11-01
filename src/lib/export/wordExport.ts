@@ -1,4 +1,5 @@
 import { renderMarkdown } from "@/lib/markdown/renderer";
+import { stripCodeCopyChrome } from "@/lib/markdown/enhance";
 import { applyTocIdsToHtml, extractToc } from "@/lib/markdown/toc";
 import { embedLocalImages } from "@/lib/markdown/embedImages";
 
@@ -47,7 +48,10 @@ export async function exportMarkdownToDocBytes(
   const toc = extractToc(source);
   const { html: rendered } = await renderMarkdown(source);
   const withIds = applyTocIdsToHtml(rendered, toc);
-  const bodyHtml = await embedLocalImages(withIds, docPath);
+  const bodyHtml = await embedLocalImages(
+    stripCodeCopyChrome(withIds),
+    docPath,
+  );
   const safeTitle = escapeHtml(title.replace(/\.md$/i, "") || "Lunark");
 
   const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office"

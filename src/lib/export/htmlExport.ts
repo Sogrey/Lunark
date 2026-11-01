@@ -2,6 +2,7 @@ import nightCss from "@/styles/themes/night.css?raw";
 import nightPreviewCss from "@/styles/themes/night-preview.css?raw";
 import katexCss from "katex/dist/katex.min.css?raw";
 import { renderMarkdown } from "@/lib/markdown/renderer";
+import { stripCodeCopyChrome } from "@/lib/markdown/enhance";
 import { applyTocIdsToHtml, extractToc } from "@/lib/markdown/toc";
 import { embedLocalImages } from "@/lib/markdown/embedImages";
 
@@ -52,8 +53,10 @@ html, body {
 .markdown-preview table { page-break-inside: avoid; }
 .markdown-preview img {
   max-width: 100%;
-  height: auto;
   page-break-inside: avoid;
+}
+.markdown-preview img:not([height]) {
+  height: auto;
 }
 .markdown-preview .mermaid-block {
   background: #fff;
@@ -90,6 +93,7 @@ html, body {
   font-size: 0.85em;
   white-space: pre-wrap;
 }
+.markdown-preview .lunark-code-copy { display: none !important; }
 @media print {
   .markdown-preview { max-width: none; padding: 0; }
 }
@@ -104,7 +108,9 @@ export async function buildExportHtml(
   const toc = extractToc(source);
   const { html: rendered } = await renderMarkdown(source);
   const withIds = applyTocIdsToHtml(rendered, toc);
-  const html = await embedLocalImages(withIds, docPath);
+  const forExport =
+    theme === "print" ? stripCodeCopyChrome(withIds) : withIds;
+  const html = await embedLocalImages(forExport, docPath);
   const safeTitle = escapeHtml(title.replace(/\.md$/i, "") || "Lunark");
 
   const styles =

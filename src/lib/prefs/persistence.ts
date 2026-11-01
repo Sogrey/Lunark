@@ -60,6 +60,7 @@ function collectPrefs(
     typewriterMode: editor.typewriterMode,
     statusBarVisible: editor.statusBarVisible,
     spellCheckEnabled: editor.spellCheckEnabled,
+    codeLineNumbers: editor.codeLineNumbers,
     picgoEnabled: editor.picgoEnabled,
     picgoEndpoint: editor.picgoEndpoint,
     imageHosts: editor.imageHosts.map((h) => ({ ...h })),
@@ -188,6 +189,7 @@ export function usePrefsPersistence() {
     editor.setTypewriterMode(prefs.typewriterMode);
     editor.setStatusBarVisible(prefs.statusBarVisible);
     editor.setSpellCheckEnabled(prefs.spellCheckEnabled);
+    editor.setCodeLineNumbers(prefs.codeLineNumbers);
     editor.setPicgoEnabled(prefs.picgoEnabled);
     editor.setImageHosts(prefs.imageHosts);
     editor.setActiveImageHostId(prefs.activeImageHostId);
@@ -236,6 +238,7 @@ export function usePrefsPersistence() {
           editor.typewriterMode,
           editor.statusBarVisible,
           editor.spellCheckEnabled,
+          editor.codeLineNumbers,
           editor.picgoEnabled,
           editor.picgoEndpoint,
           editor.activeImageHostId,
