@@ -4,6 +4,9 @@
  * 文件头可选元数据：
  *   /* lunark-theme: 显示名 *\/
  *   /* lunark-dark: true *\/
+ *   /* lunark-features: tip, line-numbers, highlight-lines *\/
+ *
+ * 完整约定见 themes/THEME_PACK.md。
  */
 import { isTauri } from "@tauri-apps/api/core";
 import { appConfigDir, basename, join } from "@tauri-apps/api/path";
@@ -21,6 +24,10 @@ import {
   customThemeId,
   type CustomThemeEntry,
 } from "@/lib/theme/catalog";
+import {
+  parseThemeFeatures,
+  type ThemeFeature,
+} from "@/lib/theme/features";
 import { grantUserPath } from "@/lib/fs/scope";
 import { unmappedShellSelectors } from "@/lib/theme/shellSelectors";
 
@@ -40,9 +47,12 @@ export function slugifyThemeFileName(name: string): string {
 export function parseThemeHeader(
   css: string,
   fallbackLabel: string,
-): { label: string; dark: boolean } {
+): { label: string; dark: boolean; features: ThemeFeature[] } {
   const labelMatch = css.match(/\/\*\s*lunark-theme:\s*(.+?)\s*\*\//i);
   const darkMatch = css.match(/\/\*\s*lunark-dark:\s*(true|false)\s*\*\//i);
+  const featuresMatch = css.match(
+    /\/\*\s*lunark-features:\s*([^*]+?)\s*\*\//i,
+  );
   const label = labelMatch?.[1]?.trim() || fallbackLabel;
   let dark = true;
   if (darkMatch?.[1]) {
@@ -56,7 +66,8 @@ export function parseThemeHeader(
       dark = false;
     }
   }
-  return { label, dark };
+  const features = parseThemeFeatures(featuresMatch?.[1]);
+  return { label, dark, features };
 }
 
 /**
@@ -118,13 +129,20 @@ function loadBrowserThemes(): BrowserThemeBlob[] {
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (t): t is BrowserThemeBlob =>
-        !!t &&
-        typeof t === "object" &&
-        typeof (t as BrowserThemeBlob).id === "string" &&
-        typeof (t as BrowserThemeBlob).css === "string",
-    );
+    return parsed
+      .filter(
+        (t): t is BrowserThemeBlob =>
+          !!t &&
+          typeof t === "object" &&
+          typeof (t as BrowserThemeBlob).id === "string" &&
+          typeof (t as BrowserThemeBlob).css === "string",
+      )
+      .map((t) => ({
+        ...t,
+        features: Array.isArray(t.features)
+          ? parseThemeFeatures(t.features.join(" "))
+          : parseThemeFeatures(""),
+      }));
   } catch {
     return [];
   }
@@ -158,6 +176,7 @@ export async function listCustomThemes(): Promise<CustomThemeEntry[]> {
         label: meta.label,
         fileName: ent.name,
         dark: meta.dark,
+        features: meta.features,
       });
     }
     out.sort((a, b) => a.label.localeCompare(b.label, "zh"));
@@ -205,10 +224,17 @@ export async function importCustomThemeFromPath(
       label: meta.label,
       fileName,
       dark: meta.dark,
+      features: meta.features,
       css,
     });
     saveBrowserThemes(list);
-    return { id, label: meta.label, fileName, dark: meta.dark };
+    return {
+      id,
+      label: meta.label,
+      fileName,
+      dark: meta.dark,
+      features: meta.features,
+    };
   }
 
   const dir = await ensureThemesDir();
@@ -219,6 +245,7 @@ export async function importCustomThemeFromPath(
     label: meta.label,
     fileName,
     dark: meta.dark,
+    features: meta.features,
   };
 }
 
@@ -262,10 +289,17 @@ function pickBrowserFile(): Promise<CustomThemeEntry | null> {
           label: meta.label,
           fileName,
           dark: meta.dark,
+          features: meta.features,
           css,
         });
         saveBrowserThemes(list);
-        resolve({ id, label: meta.label, fileName, dark: meta.dark });
+        resolve({
+          id,
+          label: meta.label,
+          fileName,
+          dark: meta.dark,
+          features: meta.features,
+        });
       };
       reader.onerror = () => reject(new Error("读取文件失败"));
       reader.readAsText(file);
@@ -304,9 +338,11 @@ export async function openThemesFolder(): Promise<void> {
         "可选文件头：",
         "  /* lunark-theme: 显示名 */",
         "  /* lunark-dark: true */",
+        "  /* lunark-features: tip, line-numbers, highlight-lines */",
         "",
         '样式请使用 [data-theme="custom"] 选择器覆盖 CSS 变量。',
-        "示例见仓库 themes/examples/slate.css",
+        "预览能力约定见仓库 themes/THEME_PACK.md",
+        "示例：themes/examples/slate.css · preview-kit.css",
       ].join("\n"),
     );
   }

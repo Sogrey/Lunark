@@ -1,3 +1,15 @@
+/* 混合编辑：暗色底上原生 caret 常几乎不可见，统一用主题色 */
+.hybrid-editor .milkdown .ProseMirror {
+  caret-color: var(--primary-color, #6dc1e7);
+}
+
+.hybrid-editor .lunark-md-image-source-input,
+.hybrid-editor .lunark-md-math-source-input,
+.hybrid-editor .lunark-md-preview-source-input {
+  caret-color: var(--primary-color, #6dc1e7);
+  color: var(--text-color, #b8bfc6);
+}
+
 /* 混合编辑标题层级（全局，确保压过 Crepe 主题加载顺序问题） */
 .hybrid-editor .milkdown .ProseMirror h1,
 .hybrid-editor .milkdown .ProseMirror h2,
@@ -49,10 +61,10 @@
 
 .hybrid-editor .lunark-mermaid-preview {
   margin: 0.5rem 0;
-  padding: 0.75rem;
-  background: var(--side-bar-bg-color);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   overflow-x: auto;
   color: var(--text-color);
   font-size: 13px;
@@ -62,6 +74,119 @@
   max-width: 100%;
   height: auto;
   display: block;
+}
+
+/* 提示块 / 对齐（混合模式围栏预览）
+ * Crepe `.preview { text-align: center }` 是给 Mermaid 的，提示块需覆盖为左对齐 */
+.hybrid-editor .lunark-container {
+  margin: 0;
+  padding: 12px 14px 12px 16px;
+  border-radius: 6px;
+  border-left: 4px solid var(--primary-color, #6dc1e7);
+  background: color-mix(
+    in srgb,
+    var(--primary-color, #6dc1e7) 10%,
+    var(--bg-color, #1e1e1e)
+  );
+  text-align: left;
+}
+
+.hybrid-editor .milkdown-code-block .preview-panel .preview:has(.lunark-container) {
+  text-align: left;
+}
+
+.hybrid-editor .lunark-container-title {
+  margin: 0 0 0.5em;
+  font-weight: 650;
+  color: var(--primary-color-alt, var(--primary-color, #a3d5fe));
+}
+
+.hybrid-editor .lunark-container > p:last-child {
+  margin-bottom: 0;
+}
+
+.hybrid-editor .lunark-container-tip {
+  border-left-color: #3fa76a;
+  background: color-mix(in srgb, #3fa76a 12%, var(--bg-color, #1e1e1e));
+}
+.hybrid-editor .lunark-container-tip .lunark-container-title {
+  color: #6dca92;
+}
+
+.hybrid-editor .lunark-container-info {
+  border-left-color: #4a90c8;
+  background: color-mix(in srgb, #4a90c8 12%, var(--bg-color, #1e1e1e));
+}
+.hybrid-editor .lunark-container-info .lunark-container-title {
+  color: #7eb6e0;
+}
+
+.hybrid-editor .lunark-container-warning {
+  border-left-color: #c9a227;
+  background: color-mix(in srgb, #c9a227 14%, var(--bg-color, #1e1e1e));
+}
+.hybrid-editor .lunark-container-warning .lunark-container-title {
+  color: #e0c35a;
+}
+
+.hybrid-editor .lunark-container-danger {
+  border-left-color: #d35a5a;
+  background: color-mix(in srgb, #d35a5a 14%, var(--bg-color, #1e1e1e));
+}
+.hybrid-editor .lunark-container-danger .lunark-container-title {
+  color: #e88a8a;
+}
+
+.hybrid-editor .lunark-container-details {
+  border-left-color: var(--border-color, #555);
+  background: color-mix(
+    in srgb,
+    var(--text-color, #ccc) 6%,
+    var(--bg-color, #1e1e1e)
+  );
+}
+
+.hybrid-editor .lunark-container-details > summary {
+  cursor: pointer;
+  font-weight: 650;
+  color: var(--text-color, #ddd);
+  margin-bottom: 0.35em;
+}
+
+.hybrid-editor .lunark-align {
+  margin: 0.35rem 0 0.5rem;
+}
+
+.hybrid-editor .lunark-align-left {
+  text-align: left;
+}
+
+.hybrid-editor .lunark-align-center {
+  text-align: center;
+}
+
+.hybrid-editor .lunark-align-right {
+  text-align: right;
+}
+
+/* 脚注引用：阅读态上标，编辑态露出 [^id]（勿用 line-height:0，会把后文挤换行） */
+.hybrid-editor .lunark-fn-hide {
+  font-size: 0 !important;
+  letter-spacing: -0.05em;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+.hybrid-editor .lunark-fn-sup {
+  display: inline;
+  font-size: 0.75em;
+  vertical-align: super;
+  margin: 0 0.1em;
+  padding: 0 1px;
+  color: var(--primary-color, #6dc1e7);
+  font-weight: 650;
+  cursor: text;
+  user-select: none;
 }
 
 /* 局部 Markdown 语法糖（Typora 风） */
@@ -333,4 +458,145 @@
   position: relative;
   border: 1px solid var(--border-color, #474d54);
   border-radius: 4px;
+}
+
+/* 提示块 / 对齐 / 公式 / Mermaid：去掉 Crepe code-block 灰底与 padding */
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first:has(.lunark-container),
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first:has(.lunark-align),
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first:has(.lunark-mermaid-preview),
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first[data-lunark-preview-lang="latex"],
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first[data-lunark-preview-lang="tex"],
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first[data-lunark-preview-lang="math"],
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first[data-lunark-preview-lang="katex"],
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first[data-lunark-preview-lang="mermaid"] {
+  padding: 0 !important;
+  margin: 0.65rem 0;
+  background: transparent !important;
+}
+
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first:has(.lunark-container).selected,
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first:has(.lunark-align).selected,
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first:has(
+    .lunark-mermaid-preview
+  ).selected,
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first[data-lunark-preview-lang="latex"].selected,
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first[data-lunark-preview-lang="tex"].selected,
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first[data-lunark-preview-lang="math"].selected,
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first[data-lunark-preview-lang="katex"].selected,
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first[data-lunark-preview-lang="mermaid"].selected {
+  outline: none;
+}
+
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first:has(
+    .lunark-container
+  ).selected
+  .preview-panel,
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first:has(.lunark-align).selected
+  .preview-panel,
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first:has(
+    .lunark-mermaid-preview
+  ).selected
+  .preview-panel,
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first[data-lunark-preview-lang="latex"].selected
+  .preview-panel,
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first[data-lunark-preview-lang="tex"].selected
+  .preview-panel,
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first[data-lunark-preview-lang="math"].selected
+  .preview-panel,
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first[data-lunark-preview-lang="katex"].selected
+  .preview-panel,
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first[data-lunark-preview-lang="mermaid"].selected
+  .preview-panel {
+  border: none;
+  border-radius: 0;
+}
+
+/* 公式 / Mermaid 选中：描在预览内容上，不留灰底框 */
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first[data-lunark-preview-lang="latex"].selected
+  .preview,
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first[data-lunark-preview-lang="tex"].selected
+  .preview,
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first[data-lunark-preview-lang="math"].selected
+  .preview,
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first[data-lunark-preview-lang="katex"].selected
+  .preview,
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first:has(
+    .lunark-mermaid-preview
+  ).selected
+  .lunark-mermaid-preview {
+  outline: 1px solid var(--primary-color, #5b9bd5);
+}
+
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first.selected
+  .lunark-container,
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first.selected
+  .lunark-align {
+  outline: 1px solid var(--primary-color, #5b9bd5);
+}
+
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first:has(.lunark-container)
+  .lunark-container,
+.hybrid-editor
+  .milkdown-code-block.lunark-preview-first:has(.lunark-align)
+  .lunark-align {
+  margin: 0;
+}
+
+/* 仅工具条显示时临时抬高（用 padding 避免与上一块 margin 折叠） */
+.hybrid-editor .milkdown-table-block.lunark-table-toolbar-pad {
+  padding-top: 44px !important;
+  box-sizing: border-box;
+}
+
+/* Crepe 默认 outline 混 80% 透明，暗色下几乎看不见 */
+.hybrid-editor .milkdown-table-block table {
+  border-collapse: collapse;
+}
+
+.hybrid-editor .milkdown-table-block th,
+.hybrid-editor .milkdown-table-block td {
+  border: 1px solid
+    color-mix(in srgb, var(--border-color, #6a727a) 92%, #fff 8%) !important;
+  padding: 6px 12px;
+}
+
+.hybrid-editor .milkdown-table-block th {
+  background: color-mix(
+    in srgb,
+    var(--item-hover-bg-color, rgba(255, 255, 255, 0.06)) 80%,
+    transparent
+  );
+  font-weight: 650;
 }

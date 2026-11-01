@@ -1,5 +1,7 @@
 /** 内置 + 自定义主题目录 */
 
+import type { ThemeFeature } from "@/lib/theme/features";
+
 export type BuiltinThemeId =
   | "github"
   | "newsprint"
@@ -15,6 +17,8 @@ export interface ThemeMeta {
   label: string;
   dark: boolean;
   custom?: boolean;
+  /** 自定义主题声明的预览能力（内置为空） */
+  features?: ThemeFeature[];
 }
 
 export interface CustomThemeEntry {
@@ -24,6 +28,8 @@ export interface CustomThemeEntry {
   /** 配置目录 themes/ 下文件名 */
   fileName: string;
   dark: boolean;
+  /** 来自 `lunark-features` 头 */
+  features: ThemeFeature[];
 }
 
 export const CUSTOM_PREFIX = "custom:";
@@ -70,7 +76,13 @@ export function themeMeta(
   }
   const c = customs.find((t) => t.id === id);
   if (c) {
-    return { id: c.id, label: c.label, dark: c.dark, custom: true };
+    return {
+      id: c.id,
+      label: c.label,
+      dark: c.dark,
+      custom: true,
+      features: c.features,
+    };
   }
   return { id, label: customSlugFromId(id) || id, dark: true, custom: true };
 }

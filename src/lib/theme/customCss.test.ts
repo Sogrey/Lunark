@@ -1,10 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeCss, slugifyThemeFileName } from "./customCss";
+import {
+  parseThemeHeader,
+  sanitizeCss,
+  slugifyThemeFileName,
+} from "./customCss";
 
 describe("slugifyThemeFileName", () => {
   it("strips path traversal and separators", () => {
     expect(slugifyThemeFileName("../../etc/passwd.css")).toBe("etc-passwd");
     expect(slugifyThemeFileName("a/b\\c.css")).toBe("a-b-c");
+  });
+});
+
+describe("parseThemeHeader", () => {
+  it("reads label, dark, and features", () => {
+    const css = `
+      /* lunark-theme: Preview Kit */
+      /* lunark-dark: true */
+      /* lunark-features: tip, line-numbers, highlight-lines */
+      [data-theme="custom"] { --bg-color: #111; }
+    `;
+    expect(parseThemeHeader(css, "fallback")).toEqual({
+      label: "Preview Kit",
+      dark: true,
+      features: ["tip", "line-numbers", "highlight-lines"],
+    });
+  });
+
+  it("defaults features to empty", () => {
+    const css = `/* lunark-theme: Slate */\n/* lunark-dark: false */\n`;
+    expect(parseThemeHeader(css, "x").features).toEqual([]);
   });
 });
 
