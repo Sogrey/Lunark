@@ -11,6 +11,10 @@ import {
   isContainerKind,
   renderContainerPreviewHtml,
 } from "@/lib/markdown/containers";
+import {
+  lunarkCodeFenceHighlightExtensions,
+  renderFenceAwareLanguage,
+} from "@/lib/editor/hybrid/codeFenceHighlight";
 import { t } from "@/lib/i18n";
 
 function looksAbsoluteLocal(src: string): boolean {
@@ -137,9 +141,11 @@ export function buildCrepeConfig(defaultValue: string): CrepeConfig {
       [Crepe.Feature.CodeMirror]: {
         theme: oneDark,
         languages,
+        extensions: lunarkCodeFenceHighlightExtensions(),
         searchPlaceholder: t("editor.searchLang"),
         copyText: t("help.copy"),
         noResultText: t("editor.noLangMatch"),
+        renderLanguage: renderFenceAwareLanguage,
         previewToggleText: (previewOnly) =>
           previewOnly ? t("editor.edit") : t("editor.preview"),
         previewLabel: t("editor.preview"),

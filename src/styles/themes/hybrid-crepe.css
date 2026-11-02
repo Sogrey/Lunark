@@ -70,6 +70,87 @@
   font-size: 13px;
 }
 
+/*
+ * GitHub 风格通行高亮：
+ * 行号列全透明，只在 .cm-line 上铺底色，并向左伸出盖住行号区，中间无缝、无左侧细线。
+ */
+.hybrid-editor .milkdown .milkdown-code-block .cm-gutters {
+  display: flex !important;
+  min-width: 2.5em;
+  border-right: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+.hybrid-editor .milkdown-code-block .cm-gutter.cm-lineNumbers {
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+/* basicSetup 自带 foldGutter，会在行号和正文间留空缝 */
+.hybrid-editor .milkdown-code-block .cm-foldGutter {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+}
+
+.hybrid-editor .milkdown-code-block .cm-gutterElement {
+  padding-left: 8px;
+  padding-right: 12px;
+  box-sizing: border-box;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.hybrid-editor .milkdown-code-block .cm-content {
+  padding-left: 0 !important;
+}
+
+.hybrid-editor .milkdown-code-block .cm-line {
+  padding-left: 12px;
+}
+
+/* 通行高亮：正文底色 + 同色向左延伸盖住行号（约一行号列宽） */
+.hybrid-editor .milkdown-code-block .cm-line.cm-lunark-hl-line,
+.hybrid-editor
+  .milkdown-code-block
+  .cm-activeLine.cm-lunark-hl-line {
+  background: color-mix(
+    in srgb,
+    var(--primary-color, #6dc1e7) 28%,
+    transparent
+  ) !important;
+  box-shadow: -4.5em 0 0
+    color-mix(in srgb, var(--primary-color, #6dc1e7) 28%, transparent) !important;
+}
+
+/* 行号不再单独铺底，只略提亮数字，避免和正文「两截」 */
+.hybrid-editor .milkdown-code-block .cm-gutters .cm-lunark-hl-gutter,
+.hybrid-editor
+  .milkdown-code-block
+  .cm-gutters
+  .cm-activeLineGutter.cm-lunark-hl-gutter {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-color, #d0d6dc) !important;
+}
+
+/* 光标行：同样通行、更淡；无高亮细线 */
+.hybrid-editor
+  .milkdown-code-block
+  .cm-activeLine:not(.cm-lunark-hl-line) {
+  background: rgba(255, 255, 255, 0.04) !important;
+  box-shadow: -4.5em 0 0 rgba(255, 255, 255, 0.04) !important;
+}
+
+.hybrid-editor
+  .milkdown-code-block
+  .cm-activeLineGutter:not(.cm-lunark-hl-gutter) {
+  background: transparent !important;
+}
+
 .hybrid-editor .lunark-mermaid-preview svg {
   max-width: 100%;
   height: auto;
