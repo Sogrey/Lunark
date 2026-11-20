@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /**
- * 光标在表格内时，浮于表格上方的操作条（对齐 / 更多 / 删除）。
+ * 混合编辑：光标在表格内时，浮于表格上方的操作条（对齐 / 更多 / 删除）。
+ * 源码 / 分屏为纯文本编辑，不显示此工具条。
  */
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
@@ -8,8 +9,6 @@ import { useEditorStore } from "@/stores/editor";
 import {
   applyTableToDoc,
   cellColumnFromDom,
-  estimateColIndex,
-  findTableAtLine,
   formatTable,
   getColumnAlign,
   insertColumn,
@@ -43,30 +42,6 @@ const alignRight = computed(() => align.value === "right");
 
 function splitLines(doc: string) {
   return doc.split(/\r\n|\r|\n/);
-}
-
-function resolveFromSource(): boolean {
-  const view = editor.cmView;
-  if (!view || editor.viewMode === "hybrid") return false;
-  const head = view.state.selection.main.head;
-  const line = view.state.doc.lineAt(head);
-  const lineIndex = line.number - 1;
-  const table = findTableAtLine(splitLines(view.state.doc.toString()), lineIndex);
-  if (!table) return false;
-
-  tableRef.value = table;
-  col.value = estimateColIndex(line.text, head - line.from);
-  align.value = getColumnAlign(table, col.value);
-  rowIndex.value = Math.max(2, lineIndex - table.start);
-
-  const coords = view.coordsAtPos(view.state.doc.line(table.start + 1).from);
-  if (!coords) return false;
-  const editorBox = view.scrollDOM.getBoundingClientRect();
-  // 工具条高 32px，再留 8px 空隙
-  top.value = coords.top - 40;
-  left.value = editorBox.left + 8;
-  width.value = Math.max(200, editorBox.width - 16);
-  return true;
 }
 
 /** 当前加了工具条垫高的表格块（hybrid） */
@@ -143,8 +118,15 @@ function resolveFromHybrid(): boolean {
 }
 
 function refresh() {
-  const ok =
-    editor.viewMode === "hybrid" ? resolveFromHybrid() : resolveFromSource();
+  // 源码 / 分屏：纯文本，不弹出表格工具条
+  if (editor.viewMode !== "hybrid") {
+    menuOpen.value = false;
+    tableRef.value = null;
+    clearTableToolbarPad();
+    visible.value = false;
+    return;
+  }
+  const ok = resolveFromHybrid();
   // 离开表格时才关「更多」；刷新位置时保持菜单打开
   if (!ok) {
     menuOpen.value = false;

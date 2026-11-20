@@ -40,6 +40,7 @@ import {
   footnotesToHybrid,
   hybridFootnotesToCanonical,
 } from "@/lib/markdown/footnotes";
+import { unescapeGfmLiteralEscapes } from "@/lib/markdown/gfmLiteralEscapes";
 
 import "@milkdown/crepe/theme/common/style.css";
 import "@milkdown/crepe/theme/common/reset.css";
@@ -113,8 +114,10 @@ function toHybrid(md: string): string {
 }
 
 function toCanonical(md: string): string {
-  return hybridFootnotesToCanonical(
-    hybridFencesToContainers(normalizeDocText(md)),
+  return unescapeGfmLiteralEscapes(
+    hybridFootnotesToCanonical(
+      hybridFencesToContainers(normalizeDocText(md)),
+    ),
   );
 }
 
